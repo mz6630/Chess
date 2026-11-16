@@ -1,0 +1,82 @@
+/* VOICE hushed and exact: an editorial chess poster in black and white, no colour at all
+   IDEA the loader is a white photo studio: six black lacquer pieces rise from a glossy floor one by one,
+        a slow key light swings their shadows round like a sundial, then the king alone is framed;
+        the landing is a magazine cover: a white king standing on the horizon over its black reflection
+   PICTURE real-time WebGL lathe models built from the reference silhouettes; on the landing the king splits the screen into black above and paper below
+   COLOUR ink #0B0B0B and paper #F3F2EE only, greys for small text
+   TYPE Bodoni Moda (high-contrast didone, wide tracked caps) + Jost (geometric, light, tracked labels)
+   LAYOUT loader: six pieces on one baseline at 66% height; landing: FIRST sits on the horizon left, GAMBIT hangs below it right,
+          king centred; under 900px the king moves right and the words stack on the left */
+:root{color-scheme:dark;--ink:#0B0B0B;--paper:#FFFFFF;--md:#8C8C88;--ml:#5A5A56;--hz:58%;--kh:min(38vh,34vw,400px);--kw:calc(var(--kh)*78.6/254);--g:6vw}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--paper);font:300 16px/1.6 Jost,'Helvetica Neue',Arial,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;background:none;border:0;padding:0;cursor:pointer}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:1px solid currentColor;outline-offset:4px}
+.cap{font:400 13px/1.3 Jost,Arial,sans-serif;letter-spacing:.28em;text-transform:uppercase}
+.mark{font:600 15px/1 'Bodoni Moda',Didot,'Times New Roman',serif;letter-spacing:.32em;text-transform:uppercase}
+
+/* ---------- loader: a white studio rendered in WebGL, no words ---------- */
+.loader{position:fixed;inset:0;z-index:20;display:none;background:#FFFFFF;isolation:isolate;cursor:default}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+.curtain{position:absolute;left:0;right:0;top:0;height:var(--hz);background:#F4F4F4;mix-blend-mode:difference;transform:scaleY(0);transform-origin:50% 0;pointer-events:none}
+.pre .k-dn{clip-path:inset(0 0 100% 0)}
+.pre .first,.pre .gambit,.pre .fd{opacity:0}
+.intro-on{overflow:hidden!important}
+
+/* ---------- landing ---------- */
+.hero{position:relative;height:100%;min-height:600px;overflow:hidden}
+.top{position:absolute;left:0;right:0;top:0;height:var(--hz);background:var(--ink);color:var(--paper)}
+.bot{position:absolute;left:0;right:0;top:var(--hz);bottom:0;background:var(--paper);color:var(--ink);transform-origin:50% 100%}
+nav{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:26px var(--g);z-index:3}
+.links{display:flex;gap:clamp(18px,3vw,44px)}
+.links a{padding:12px 0;border-bottom:1px solid transparent}
+.links a:hover{border-color:currentColor}
+.first,.gambit{margin:0;font:500 clamp(40px,6.8vw,118px)/.74 'Bodoni Moda',Didot,'Times New Roman',serif;letter-spacing:.16em;text-transform:uppercase;white-space:nowrap}
+.first{position:absolute;left:var(--g);bottom:0}
+.lede{position:absolute;right:var(--g);bottom:2.4vh;margin:0;text-align:right;font:italic 400 clamp(20px,1.9vw,28px)/1.3 'Bodoni Moda',Didot,serif;color:var(--paper)}
+.king{position:absolute;left:50%;top:var(--hz);width:var(--kw);height:0;transform:translateX(-50%);z-index:2}
+.k-up,.k-dn{position:absolute;left:0;width:100%;height:var(--kh)}
+.k-up{bottom:0}
+.k-dn{top:0}
+.k-up svg,.k-dn svg{display:block;width:100%;height:100%}
+.k-up svg{fill:var(--paper)}
+.k-dn svg{fill:var(--ink)}
+.rb{position:absolute;right:var(--g);top:0;display:grid;justify-items:end;gap:24px;text-align:right}
+.desc{margin:0;max-width:min(360px,calc(50vw - var(--kw)/2 - var(--g) - 36px));color:var(--ml);font-size:16px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.ctas{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;max-width:calc(50vw - var(--kw)/2 - var(--g) - 36px)}
+.btn{min-height:48px;padding:0 24px;border:1px solid var(--ink);display:inline-flex;align-items:center;transition:background .2s,color .2s}
+.btn.solid{background:var(--ink);color:var(--paper)}
+.btn.solid:hover{background:#2A2A28}
+.btn.line:hover{background:var(--ink);color:var(--paper)}
+.msg{min-height:22px;font-size:14px;color:var(--ml)}
+.feats{position:absolute;left:var(--g);top:clamp(28px,5vh,52px);width:min(340px,calc(50vw - var(--kw)/2 - var(--g) - 40px));display:grid;gap:18px;margin:0;padding:0;list-style:none}
+.feats li{display:grid;gap:4px}
+.feats .cap{font-weight:500}
+.feats span:last-child{color:var(--ml)}
+.replay{position:absolute;right:var(--g);bottom:18px;min-height:44px;color:var(--ml)}
+.replay:hover{color:var(--ink)}
+
+@media (max-width:899px),(max-height:619px){
+  body{overflow:auto}
+  :root{--hz:56svh;--kh:min(30vh,58vw);--g:20px}
+  .hero{height:auto;min-height:100svh}
+  .top{height:56svh}
+  .bot{position:relative;top:auto;margin-top:56svh;padding:0 var(--g) 28px}
+  .king{left:72%;top:56svh}
+  .links{display:none}
+  .lede{left:var(--g);right:auto;top:96px;bottom:auto;text-align:left}
+  .k-dn{height:calc(var(--kh)*.42);overflow:hidden;-webkit-mask-image:linear-gradient(#000 35%,transparent);mask-image:linear-gradient(#000 35%,transparent)}
+  .rb{position:static;justify-items:start;text-align:left;padding-top:0}
+  .gambit{margin-bottom:calc(var(--kh)*.42 - 30px)}
+  .desc,.ctas{max-width:none}
+  .ctas{justify-content:stretch;flex-direction:column}
+  .btn{justify-content:center}
+  .feats{position:static;width:auto;margin-top:40px;padding-top:28px;border-top:1px solid #0B0B0B26}
+  .replay{position:static;margin-top:20px}
+  .first{bottom:8px}
+  .gambit{margin-top:8px}
+  .rb{justify-items:stretch}
+}
