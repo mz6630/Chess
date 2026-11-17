@@ -73,20 +73,166 @@
       return { eye: V.add(tgt, V.mul([Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az)], dist)), tgt, fov };
     }
 
+    // ---------- hands on the board: drag to move, knock pieces over ----------
+    const LIVE = 0.995, BOUND = 3.9, FALL_MS = 520;
+    let live = false, lastCam = null, lastAsp = 1;
+    const radius = p => p.r0 * S, length = p => GEO[p.type].h * S;
+    // the tilt at which a piece lying on its side rests with its tip on the board
+    const restAngle = p => { const rb = radius(p), L = length(p); let th = Math.PI / 2; for (let i = 0; i < 30; i++) { const f = rb * Math.sin(th) + L * Math.cos(th) - .03; if (f <= 0) break; th += .01; } return th; };
+
+    function goLive() {
+      live = true;
+      for (const p of order) { const ps = pose(p, 1); p.ix = ps.pos[0]; p.iz = ps.pos[2]; p.th = 0; p.dir = [1, 0]; p.lift = 0; p.anims = []; p.knockAt = 0; }
+    }
+    function leaveLive() { live = false; for (const p of order) delete p.ix; drag = null; canvas.style.cursor = ''; }
+
+    const anim = (p, key, to, dur, ease) => { p.anims = p.anims.filter(a => a.key !== key); p.anims.push({ key, from: p[key], to, t0: performance.now(), dur, ease }); };
+    const fallEase = u => u < .78 ? (u / .78) ** 2 : 1 - .07 * Math.sin((u - .78) / .22 * Math.PI);
+    function knock(p, dx, dz, delay = 0) {
+      if (p.th > .2 || p.knockAt || p === (drag && drag.p)) return;
+      const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+      p.knockAt = performance.now() + delay; p.knockDir = [dx, dz];
+    }
+    function startFall(p, now) {
+      const [dx, dz] = p.knockDir; p.knockAt = 0;
+      // pivot on the rim of the base that faces the push
+      const rb = radius(p);
+      p.ix += dx * rb; p.iz += dz * rb; p.dir = [dx, dz]; p.pivot = true;
+      anim(p, 'th', restAngle(p), FALL_MS, fallEase);
+      // dominoes: whatever stands in the falling piece's path goes too
+      const L = length(p);
+      for (const q of order) {
+        if (q === p || q.th > .2 || q.knockAt) continue;
+        const rx = q.ix - p.ix, rz = q.iz - p.iz, along = rx * dx + rz * dz, side = Math.abs(rx * dz - rz * dx);
+        if (along > 0 && along < L + radius(q) * .6 && side < radius(q) + .14) knock(q, dx + (Math.random() - .5) * .5, dz + (Math.random() - .5) * .5, FALL_MS * Math.pow(along / L, 1.4) * .85);
+      }
+    }
+    // base centre and rotation of a piece in its interactive state
+    function livePose(p) {
+      const up = Q.mul(Q.I, p.face), rb = radius(p);
+      if (!p.pivot || p.th < 1e-4) return { pos: [p.ix - (p.pivot ? p.dir[0] * rb : 0), TOP + p.lift, p.iz - (p.pivot ? p.dir[1] * rb : 0)], q: up };
+      const [dx, dz] = p.dir, th = p.th, ax = [dz, 0, -dx];
+      const c = Math.cos(th), si = Math.sin(th);
+      // the base centre swings round the pivot on the rim
+      return { pos: [p.ix - dx * rb * c, TOP + p.lift + rb * si, p.iz - dz * rb * c], q: Q.mul(Q.axis(ax, th), up) };
+    }
+    const baseOf = p => { if (!p.pivot) return [p.ix, p.iz]; return [p.ix - p.dir[0] * radius(p), p.iz - p.dir[1] * radius(p)]; };
+    function unpivot(p) { const [x, z] = baseOf(p); p.ix = x; p.iz = z; p.pivot = false; }
+
+    function step(now) {
+      let busy = false;
+      for (const p of order) {
+        if (p.knockAt && now >= p.knockAt) startFall(p, now);
+        if (p.knockAt) busy = true;
+        p.anims = p.anims.filter(a => {
+          const u = clamp((now - a.t0) / a.dur);
+          p[a.key] = a.from + (a.to - a.from) * (a.ease ? a.ease(u) : easeInOut(u));
+          if (u < 1) { busy = true; return true; }
+          if (a.key === 'th' && p.th < 1e-3) { p.th = 0; unpivot(p); }
+          return false;
+        });
+      }
+      return busy;
+    }
+
     function draw(prog) {
       const { asp } = R.size();
+      if (prog >= LIVE && !live) goLive(); else if (prog < LIVE - .02 && live) leaveLive();
       const pieces = [], ao = [];
       for (const p of order) {
-        const ps = pose(p, prog); if (!ps) continue;
+        let ps;
+        if (live) { const lp = livePose(p); ps = { pos: lp.pos, q: lp.q, scale: S }; }
+        else { ps = pose(p, prog); if (!ps) continue; }
         pieces.push({ type: p.type, white: p.white, m: M.compose(ps.pos, ps.q, ps.scale) });
-        ao.push({ x: ps.pos[0], z: ps.pos[2], r: p.r0 * ps.scale, lift: Math.max(0, ps.pos[1] - TOP), vis: clamp(ps.scale / S), spread: S });
+        const lying = live && p.th > .3;
+        ao.push({ x: ps.pos[0], z: ps.pos[2], r: p.r0 * ps.scale * (lying ? .6 : 1), lift: Math.max(0, ps.pos[1] - TOP - (lying ? radius(p) : 0)), vis: clamp(ps.scale / S), spread: S });
       }
       const la = (-38 + 30 * prog) * Math.PI / 180, le = 46 * Math.PI / 180;
       const L = [Math.cos(le) * Math.sin(la), Math.sin(le), Math.cos(le) * Math.cos(la)];
       const bg = .93 * (.33 + L[1] * 2.9);
-      R.render({ t: prog * 10, cam: camera(prog, asp), L, Lc: 2.9, amb: .33, exp: 1.32, shadow: { c: [0, 0, 0], half: 10 }, shadowSoft: 1.6, taps: 6, cheap: true, flat: true,
+      lastCam = camera(prog, asp); lastAsp = asp;
+      R.render({ t: prog * 10, cam: lastCam, L, Lc: 2.9, amb: .33, exp: 1.32, shadow: { c: [0, 0, 0], half: 10 }, shadowSoft: 1.6, taps: 6, cheap: true, flat: true,
         clip: false, ground: TOP, groundCol: [bg * .45, bg * .45, bg * .45], reflect: false, board: true, pieces, ao });
     }
+
+    // ---------- pointer ----------
+    function ray(e) {
+      const r = canvas.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * 2 - 1, y = 1 - ((e.clientY - r.top) / r.height) * 2;
+      const c = lastCam, f = V.norm(V.sub(c.tgt, c.eye)), rt = V.norm(V.cross(f, [0, 1, 0])), up = V.cross(rt, f), tn = Math.tan(c.fov / 2);
+      return { o: c.eye, d: V.norm(V.add(f, V.add(V.mul(rt, x * tn * lastAsp), V.mul(up, y * tn)))) };
+    }
+    const onPlane = (rr, y) => { const t = (y - rr.o[1]) / rr.d[1]; return t > 0 ? V.add(rr.o, V.mul(rr.d, t)) : null; };
+    function pick(rr) {
+      let best = null, bt = 1e9;
+      for (const p of order) {
+        const lp = livePose(p), axis = [0, 1, 0], R3 = M.compose([0, 0, 0], lp.q, 1), a = [R3[4], R3[5], R3[6]];
+        const L = length(p), rad = radius(p) * 1.15;
+        for (let k = 0; k <= 8; k++) {
+          const pt = V.add(lp.pos, V.mul(a, L * k / 8)), w = V.sub(pt, rr.o), t = V.dot(w, rr.d);
+          if (t < 0) continue;
+          const d = Math.hypot(...V.sub(w, V.mul(rr.d, t)));
+          if (d < rad && t < bt) { bt = t; best = p; }
+        }
+      }
+      return best;
+    }
+
+    let drag = null, iraf = 0;
+    const loop = () => {
+      iraf = 0;
+      const busy = step(performance.now());
+      draw(cur);
+      if (busy || drag) iraf = requestAnimationFrame(loop);
+    };
+    const wake = () => { if (!iraf) iraf = requestAnimationFrame(loop); };
+
+    canvas.addEventListener('pointerdown', e => {
+      if (!live || !lastCam || e.button > 0) return;
+      const rr = ray(e), p = pick(rr); if (!p) return;
+      e.preventDefault(); canvas.setPointerCapture(e.pointerId);
+      p.knockAt = 0;
+      if (p.th > 0) { unpivotKeep(p); anim(p, 'th', 0, 260); }
+      const hit = onPlane(rr, TOP + .4) || [p.ix, 0, p.iz];
+      drag = { p, id: e.pointerId, ox: p.ix - hit[0], oz: p.iz - hit[2], last: [p.ix, p.iz], t: performance.now(), v: 0 };
+      anim(p, 'lift', .4, 160);
+      canvas.style.cursor = 'grabbing'; wake();
+    });
+    // stand a fallen piece back up about its own base
+    function unpivotKeep(p) { const lp = livePose(p); p.ix = lp.pos[0]; p.iz = lp.pos[2]; p.lift = Math.max(p.lift, lp.pos[1] - TOP); p.pivot = false; anim(p, 'lift', .4, 260); }
+
+    canvas.addEventListener('pointermove', e => {
+      if (!live || !lastCam) return;
+      const rr = ray(e);
+      if (!drag) { canvas.style.cursor = pick(rr) ? 'grab' : ''; return; }
+      const hit = onPlane(rr, TOP + .4); if (!hit) return;
+      const p = drag.p, now = performance.now();
+      p.ix = clamp(hit[0] + drag.ox, -BOUND - .3, BOUND + .3); p.iz = clamp(hit[2] + drag.oz, -BOUND - .3, BOUND + .3);
+      const dt = Math.max(1, now - drag.t) / 1000, vx = (p.ix - drag.last[0]) / dt, vz = (p.iz - drag.last[1]) / dt;
+      drag.v = drag.v * .5 + Math.hypot(vx, vz) * .5; drag.last = [p.ix, p.iz]; drag.t = now;
+      // bump into the others: a quick swipe knocks them over, a slow one pushes them aside
+      for (const q of order) {
+        if (q === p || q.knockAt) continue;
+        const [bx, bz] = baseOf(q), dx = bx - p.ix, dz = bz - p.iz, d = Math.hypot(dx, dz), min = radius(p) + radius(q) * .95;
+        if (d >= min || d < 1e-4) continue;
+        if (q.th < .2 && drag.v > 2.4) knock(q, dx / d + vx / (drag.v + 1e-3) * .6, dz / d + vz / (drag.v + 1e-3) * .6);
+        else if (!q.anims.some(a => a.key === 'th')) { const k = (min - d) / d; if (q.pivot) { q.ix += dx * k; q.iz += dz * k; } else { q.ix = clamp(q.ix + dx * k, -BOUND - .3, BOUND + .3); q.iz = clamp(q.iz + dz * k, -BOUND - .3, BOUND + .3); } }
+      }
+      wake();
+    });
+    const drop = e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const p = drag.p; drag = null;
+      // settle on the nearest square
+      const fx = clamp(Math.round(p.ix + 3.5), 0, 7) - 3.5, fz = clamp(Math.round(p.iz + 3.5), 0, 7) - 3.5;
+      anim(p, 'ix', fx, 220); anim(p, 'iz', fz, 220); anim(p, 'lift', 0, 260, u => u * u);
+      // whoever was standing there is knocked off it
+      for (const q of order) { if (q === p) continue; const [bx, bz] = baseOf(q); const dx = bx - fx, dz = bz - fz; if (Math.hypot(dx, dz) < .42 && q.th < .2) knock(q, dx || .3, dz || .3, 160); }
+      canvas.style.cursor = 'grab'; wake();
+    };
+    canvas.addEventListener('pointerup', drop);
+    canvas.addEventListener('pointercancel', drop);
+    // a double click puts every piece back where it stood
+    canvas.addEventListener('dblclick', () => { if (!live) return; goLive(); wake(); });
 
     // ---------- scroll ----------
     let target = reduced ? 1 : 0, cur = target, raf = 0, visible = false;
@@ -101,13 +247,13 @@
       cur += (target - cur) * 0.22;
       if (Math.abs(target - cur) < 1e-4) cur = target;
       try { draw(cur); } catch (e) { console.error(e); return; }
-      if (cur !== target) raf = requestAnimationFrame(tick);
+      if (cur !== target) raf = requestAnimationFrame(tick); else if (live) wake();
     };
     const kick = () => { target = measure(); if (!raf && visible) raf = requestAnimationFrame(tick); };
     new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) { cur = target = measure(); kick(); draw(cur); } }, { rootMargin: '200px 0px' }).observe(section);
     addEventListener('scroll', kick, { passive: true });
     addEventListener('resize', () => { if (visible) draw(cur); });
     if (reduced) section.classList.add('still');
-    window.__board3d = { draw };
+    window.__board3d = { draw, order, pick: e => pick(ray(e)) };
   }
 }

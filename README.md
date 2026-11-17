@@ -8,7 +8,7 @@ A chess school for your very first move: learn the basics, play against an AI, a
 
 - **Intro**: a wordless 3D loading scene. Six black lacquer pieces (pawn, knight, queen, king, bishop, rook) rise from a white studio floor one by one, a slow key light swings their shadows round, then the king alone is framed and night falls over it.
 - **Landing**: a black-and-white editorial cover. A white king stands on the horizon over its black reflection, with *First* above the line and *Gambit* below it.
-- **Scroll scene**: scroll down and the black and white pieces appear in the air, tumble, and land on a marble board in the starting position; the last stretch of scroll plays the Queen’s Gambit (1. d4 d5 2. c4).
+- **Scroll scene**: scroll down and the black and white pieces appear in the air, tumble, and land on a marble board in the starting position; the last stretch of scroll plays the Queen’s Gambit (1. d4 d5 2. c4). Once the set has landed, drag a piece to move it (it settles on the nearest square); swipe fast through the others to knock them over, and falling pieces topple whatever is in their way. Double-click the board to set the pieces back up.
 
 Click anywhere or press any key to skip the intro. Click the *First Gambit* logo to play it again.
 
