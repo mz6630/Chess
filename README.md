@@ -35,5 +35,6 @@ Pawn answers on its own out of the box. `worker/worker.js` is a Cloudflare Worke
 2. At dash.cloudflare.com: Workers & Pages, Create, start from "Hello World", deploy, then Edit code, paste `worker/worker.js` over everything and Deploy.
 3. In the Worker: Settings, Variables and Secrets, add a Secret named `GEMINI_API_KEY` with the key.
 4. Copy the Worker's address (`https://...workers.dev`) into `js/config.js`, commit and push.
+5. Backup for regions Google refuses ("User location is not supported"): in the Worker, Settings, Bindings, Add, Workers AI, variable name `AI`, Deploy. Pawn then answers with Cloudflare's own free models (10,000 Neurons a day) whenever Gemini can't. Open the Worker's address in a browser to see a status check.
 
 Pawn sends `POST {question, lang, context}`, where `context` holds the section the visitor is on, every piece's home square, current square and whether it has fallen, and Pawn's own analysis. The Worker replies `{"reply": "..."}`. If the request fails, Pawn falls back to its own answer. Only `https://mz6630.github.io` may call the Worker. Never put the API key in this repository: it is public.

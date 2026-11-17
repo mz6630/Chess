@@ -11,6 +11,29 @@ const PREFERRED = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
 const API = 'https://generativelanguage.googleapis.com/v1beta';
 
 let working = null; // the model that answered last, reused while the Worker stays warm
+let geminiBlockedUntil = 0; // set when Google refuses this Cloudflare location; Workers AI answers meanwhile
+
+// Backup: Cloudflare's own free models (Workers AI), which have no location limits.
+// Turn on by adding a Workers AI binding named AI (Settings > Bindings > Add > Workers AI).
+const CF_MODELS = ['@cf/google/gemma-4-26b-a4b-it', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct'];
+async function cloudflareAI(env, system, prompt, tried) {
+  if (!env.AI) { tried.push('Workers AI: no binding named AI'); return null; }
+  for (const model of CF_MODELS) {
+    try {
+      const out = await env.AI.run(model, {
+        messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
+        max_tokens: 600, temperature: 0.6
+      });
+      let text = typeof out === 'string' ? out
+        : out && (out.response ?? out.choices?.[0]?.message?.content ?? out.result?.response);
+      if (typeof text !== 'string') text = '';
+      text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      if (text) { working = model; return text; }
+      tried.push(`${model}: empty`);
+    } catch (e) { tried.push(`${model}: ${String(e.message || e).slice(0, 80)}`); }
+  }
+  return null;
+}
 
 // Google's own error sentence, e.g. "API key not valid" or "User location is not supported".
 function googleMessage(text) {
@@ -76,7 +99,7 @@ export default {
       if (!key) return json({ ok: false, problem: 'GEMINI_API_KEY is not set. Add it under Settings > Variables and Secrets as a Secret, then deploy.' });
       const list = await listModels(key);
       if (!list.ok) return json({ ok: false, problem: `Google refused the request (HTTP ${list.status}).`, google: list.detail, where: request.cf && request.cf.colo, keyLooksLike: key.slice(0, 4) + '…' + key.slice(-2) + ` (${key.length} chars)` });
-      return json({ ok: true, message: 'The key works. Pawn will try these models in order.', try: [...PREFERRED, ...list.models.filter(m => !PREFERRED.includes(m))].slice(0, 8) });
+      return json({ ok: true, message: 'The key works. Pawn will try these models in order.', try: [...PREFERRED, ...list.models.filter(m => !PREFERRED.includes(m))].slice(0, 8), backup: env.AI ? 'Workers AI is on' : 'Workers AI backup is off (add a Workers AI binding named AI)', where: request.cf && request.cf.colo });
     }
 
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -98,26 +121,34 @@ export default {
     const prompt = `Situation: ${JSON.stringify(context || {}).slice(0, 6000)}\n\nQuestion: ${question}`;
 
     const tried = [];
+    let locationBlocked = false;
     const attempt = async model => {
       const res = await generate(model, key, system, prompt);
       if (res.ok) { working = model; return res.reply; }
       tried.push(`${model}: ${res.status}`);
       console.log(model, res.status, res.detail);
+      if (/location is not supported/i.test(res.detail)) locationBlocked = true;
       if (res.status === 429) tried.push('(free-tier limit reached; wait a minute)');
       return null;
     };
 
     let reply = null;
-    for (const m of [working, ...PREFERRED].filter((m, i, a) => m && a.indexOf(m) === i)) {
-      if ((reply = await attempt(m))) break;
-    }
-    if (!reply) {
-      const list = await listModels(key);
-      if (!list.ok) return json({ error: `Google: ${list.detail}`, tried }, 502);
-      for (const m of list.models.filter(m => !PREFERRED.includes(m)).slice(0, 4)) {
-        if ((reply = await attempt(m))) break;
+    if (Date.now() > geminiBlockedUntil) {
+      const first = working && !working.startsWith('@cf/') ? [working] : [];
+      for (const m of [...first, ...PREFERRED].filter((m, i, a) => a.indexOf(m) === i)) {
+        if ((reply = await attempt(m)) || locationBlocked) break;
       }
+      if (!reply && !locationBlocked) {
+        const list = await listModels(key);
+        if (!list.ok) tried.push(`Google: ${list.detail}`);
+        for (const m of list.models.filter(m => !PREFERRED.includes(m)).slice(0, 4)) {
+          if ((reply = await attempt(m)) || locationBlocked) break;
+        }
+      }
+      // Google refuses some Cloudflare locations; skip it for 10 minutes and let Workers AI answer.
+      if (locationBlocked) { geminiBlockedUntil = Date.now() + 10 * 60 * 1000; tried.push('Gemini: location not supported'); }
     }
+    if (!reply) reply = await cloudflareAI(env, system, prompt, tried);
     return reply ? json({ reply, model: working }) : json({ error: 'AI unavailable', tried }, 502);
   }
 };
