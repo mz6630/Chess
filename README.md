@@ -9,7 +9,7 @@ A chess school for your very first move: learn the basics, play against an AI, a
 - **Intro**: a wordless 3D loading scene. Six black lacquer pieces (pawn, knight, queen, king, bishop, rook) rise from a white studio floor one by one, a slow key light swings their shadows round, then the king alone is framed and night falls over it.
 - **Landing**: a black-and-white editorial cover. A white king stands on the horizon over its black reflection, with *First* above the line and *Gambit* below it.
 
-Click anywhere or press any key to skip the intro. "Replay intro" plays it again.
+Click anywhere or press any key to skip the intro. Click the *First Gambit* logo to play it again.
 
 ## Files
 

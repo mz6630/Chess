@@ -479,8 +479,8 @@
   window.__intro3d = { draw: t => { resize(); draw(t); }, state, T };
   loader.addEventListener('click', finish);
   document.addEventListener('keydown', e => { if (loader.style.display === 'block' && !e.metaKey && !e.ctrlKey) finish(); });
-  $('replay').addEventListener('click', play);
-  $('ctas').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) $('msg').textContent = `Opening ${b.dataset.go} (intro demo)`; });
+  // the logo takes you back to the intro
+  $('logo').addEventListener('click', e => { e.preventDefault(); if (gl && progs && !matchMedia('(prefers-reduced-motion: reduce)').matches) play(); else window.scrollTo(0, 0); });
 
   if (gl && progs && !matchMedia('(prefers-reduced-motion: reduce)').matches) play();
 }
