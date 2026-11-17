@@ -29,16 +29,16 @@ No build step and no libraries: open `index.html` in a browser, or serve the fol
 
 ## Learn page (`learn.html`)
 
-A course for people who have never played: 6 chapters, 23 lessons. Chapters 1 (the board) and 2 (the pieces) are built:
+A course for people who have never played: 6 chapters, 23 lessons, all built.
 
-1. Meet the board: 64 squares, light and dark, "light on the right"
-2. Names of the squares: files a–h, ranks 1–8, finding squares by name
-3. Ranks, files and diagonals
-4. Six pieces: names, shapes and how many of each
-5. The starting position: set up White's back rank yourself
-6. Taking turns: White first, then the first moves of the Queen's Gambit
+1. **The board**: meet the board, names of the squares, ranks, files and diagonals
+2. **The pieces**: six pieces, the starting position, taking turns
+3. **How pieces move**: rook, bishop, queen, king, knight, pawn (each with a star-hunt game)
+4. **The goal of the game**: piece values, check, checkmate, stalemate and draws
+5. **Special moves**: castling, promotion, en passant
+6. **Your first game**: three opening rules, basic checkmates, reading notation, the Queen's Gambit
 
-Each lesson is a few short steps with a task (click a square, turn the board, pick a piece, place pieces). The board is drawn flat with the set's own silhouettes (`js/flat.js`). Lessons can be read in English or Korean, progress is kept in the browser, and Pawn reads the current step to give hints. `index.html#main` opens the home page without the intro.
+Each lesson is a few short steps with a task: click squares, move pieces (click a piece, then a dot), answer a question, find a checkmate. Wrong moves are explained and taken back. The board is drawn flat with the set's own silhouettes (`js/flat.js`), and `js/rules.js` knows the full rules of chess (legal moves, check, mate, stalemate, castling, en passant, promotion, notation). Lessons can be read in English or Korean, progress is kept in the browser, and Pawn reads the current step to give hints. `learn.html#/14/3` opens lesson 14 at step 3. `index.html#main` opens the home page without the intro.
 
 ## Connecting Pawn to a real AI model (free)
 

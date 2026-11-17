@@ -87,7 +87,10 @@
       sq[n] = el('rect', { class: 'sq ' + ((f + r) % 2 ? 'l' : 'd'), x: f, y: 7 - r, width: 1, height: 1, 'data-sq': n }, sqG);
     }
     el('rect', { class: 'frame', x: 0, y: 0, width: 8, height: 8 }, rot);
-    const mkG = el('g', {}, rot), pcG = el('g', {}, rot);
+    const mkG = el('g', {}, rot), pcG = el('g', {}, rot), arG = el('g', {}, rot);
+    const bdefs = el('defs', {}, svg);
+    const mkr = el('marker', { id: 'fgAh', viewBox: '0 0 10 10', refX: 6, refY: 5, markerWidth: 3.2, markerHeight: 3.2, orient: 'auto' }, bdefs);
+    el('path', { d: 'M0 0L10 5L0 10Z', fill: '#0B0B0B' }, mkr);
     const cur = el('rect', { class: 'cur', x: .05, y: 7.05, width: .9, height: .9 }, rot);
     const cornerG = el('g', { style: 'display:none' }, svg);
     el('rect', { class: 'corner', x: 7.1, y: 7.1, width: .8, height: .8 }, cornerG);
@@ -97,7 +100,7 @@
     const api = {
       svg, pieces, onSquare: null,
       reset(o = {}) {
-        mkG.textContent = ''; pcG.textContent = ''; pieces.clear();
+        mkG.textContent = ''; pcG.textContent = ''; arG.textContent = ''; pieces.clear();
         api.onSquare = null;
         api.rotate(o.rotate || 0, false);
         api.labels(o.labels !== false);
@@ -167,14 +170,27 @@
           else if (kind === 'dot') m = el('circle', { class: 'mk dot', cx: x + .5, cy: y + .5, r: .12 }, mkG);
           else if (kind === 'name') { m = el('text', { class: 'mk name', x: x + .5, y: y + .5 }, mkG); m.textContent = label || n; }
           else if (kind === 'no') m = el('rect', { class: 'mk no', x: x + .07, y: y + .07, width: .86, height: .86 }, mkG);
+          else if (kind === 'star') m = el('path', { class: 'mk star', d: [[.5, .2], [.575, .425], [.8, .5], [.575, .575], [.5, .8], [.425, .575], [.2, .5], [.425, .425]].map(([a, b], i) => (i ? 'L' : 'M') + (x + a) + ' ' + (y + b)).join('') + 'Z' }, mkG);
+          else if (kind === 'sel') m = el('rect', { class: 'mk sel', x: x + .04, y: y + .04, width: .92, height: .92 }, mkG);
+          else if (kind === 'cap') m = el('path', { class: 'mk cap', d: 'M0 0h.3L0 .3ZM1 0v.3L.7 0ZM0 1v-.3L.3 1ZM1 1h-.3L1 .7Z', transform: `translate(${x} ${y})` }, mkG);
+          else if (kind === 'mv') m = el('circle', { class: 'mk mv', cx: x + .5, cy: y + .5, r: .14 }, mkG);
           else m = el('rect', { class: 'mk ' + kind, x, y, width: 1, height: 1 }, mkG);
-          m.dataset.kind = kind;
+          m.dataset.kind = kind; m.dataset.sq = n;
           if (kind === 'ok' || kind === 'no') setTimeout(() => m.remove(), 950);
           out.push(m);
         }
         return out;
       },
-      clearMarks(kind) { [...mkG.children].forEach(m => { if (!kind || m.dataset.kind === kind) m.remove(); }); },
+      clearMarks(kind) { [...mkG.children, ...arG.children].forEach(m => { if (!kind || m.dataset.kind === kind) m.remove(); }); },
+      unmark(n, kind) { [...mkG.children].forEach(m => { if (m.dataset.sq === n && (!kind || m.dataset.kind === kind)) m.remove(); }); },
+      arrow(from, to) {
+        const [f1, r1] = fr(from), [f2, r2] = fr(to);
+        const x1 = f1 + .5, y1 = 7 - r1 + .5, x2 = f2 + .5, y2 = 7 - r2 + .5, d = Math.hypot(x2 - x1, y2 - y1);
+        const a = el('line', { class: 'mk arrow', x1, y1, x2: x2 - (x2 - x1) / d * .32, y2: y2 - (y2 - y1) / d * .32, 'marker-end': 'url(#fgAh)' }, arG);
+        a.dataset.kind = 'arrow';
+        return a;
+      },
+      clearPieces() { pcG.textContent = ''; pieces.clear(); api.describe(); },
       shake() { svg.classList.remove('shake'); svg.getBoundingClientRect(); svg.classList.add('shake'); },
       describe() {
         const w = [...pieces.values()].length;
@@ -231,7 +247,8 @@
             const shown = o.names === true || (o.names instanceof Set && o.names.has(t));
             if (shown) {
               const nm = el('text', { class: 'nm', x: x + w / 2, y: base + 30 }, g); nm.textContent = L(INFO[t].n);
-              if (o.counts !== false) { const ct = el('text', { class: 'ct', x: x + w / 2, y: base + 52 }, g); ct.textContent = '× ' + INFO[t].c; }
+              if (o.sub) { const ct = el('text', { class: 'ct', x: x + w / 2, y: base + 52 }, g); ct.textContent = o.sub(t); }
+              else if (o.counts !== false) { const ct = el('text', { class: 'ct', x: x + w / 2, y: base + 52 }, g); ct.textContent = '× ' + INFO[t].c; }
             } else if (o.names === false || o.names instanceof Set) { const q = el('text', { class: 'q', x: x + w / 2, y: base + 38 }, g); q.textContent = '?'; }
             g.setAttribute('aria-label', shown || o.names === undefined ? L(INFO[t].n) : (lang === 'ko' ? '기물' : 'A piece'));
             if (o.done && o.done.has(t)) g.classList.add('ok');
@@ -295,14 +312,195 @@
     };
   })();
 
+
+  // ---------- playing moves on the lesson board ----------
+  const R = window.FG_RULES;
+  const PN = code => INFO[TYPE[code[1]]].n;              // {en, ko} name of a piece code
+  const pn = code => L(PN(code)).toLowerCase();
+  const PROMO = [{ t: P('Queen', '퀸'), v: 'Q' }, { t: P('Rook', '룩'), v: 'R' }, { t: P('Bishop', '비숍'), v: 'B' }, { t: P('Knight', '나이트'), v: 'N' }];
+  // Click a piece to see its moves (dots, corner marks on captures), click a dot to move.
+  // o: st, side, keepTurn, placed, movable(sq), notThis, onSelect(sq, moves), onMove(m, after, before) -> 'ok'|'undo'|'stop',
+  //    reply(st) -> [from, to], promo: 'ask' | 'Q'
+  function play(c, o) {
+    let g = o.st, sel = null, moves = [], busy = false;
+    const side = o.side || 'w';
+    if (!o.placed) board.setPos(g.pos);
+    const clearSel = () => { ['sel', 'mv', 'cap'].forEach(k => board.clearMarks(k)); sel = null; moves = []; };
+    const select = n => {
+      clearSel(); sel = n; moves = R.legal(g, n);
+      board.mark(n, 'sel');
+      moves.forEach(m => board.mark(m.to, m.capture ? 'cap' : 'mv'));
+      if (o.onSelect) o.onSelect(n, moves);
+      else if (!moves.length) c.say(R.inCheck(g.pos, side)
+        ? P(`Your king is in check, and this ${PN(g.pos[n]).en.toLowerCase()} can’t help. Try another piece.`, `킹이 체크를 당하고 있는데, 이 ${PN(g.pos[n]).ko}${jo(PN(g.pos[n]).ko, '은', '는')} 막을 수 없어요. 다른 기물을 골라 보세요.`)
+        : P(`This ${PN(g.pos[n]).en.toLowerCase()} has no move right now.`, `이 ${PN(g.pos[n]).ko}${jo(PN(g.pos[n]).ko, '은', '는')} 지금 움직일 수 없어요.`));
+    };
+    const askPromo = () => new Promise(res => {
+      c.setTask(P('Your pawn reached the end. What should it become?', '폰이 끝까지 왔어요. 무엇으로 바꿀까요?'));
+      c.choices(PROMO, v => { c.clearChoices(); res(v); });
+    });
+    async function animate(m) {
+      board.move(m.from, m.to);
+      if (m.ep) board.remove(m.ep);
+      if (m.rook) board.move(m.rook[0], m.rook[1]);
+      await c.wait(650);
+      if (m.promo) { board.place(m.to, m.piece[0] + (m.promoTo || 'Q'), { anim: true }); await c.wait(500); }
+    }
+    async function go(m) {
+      busy = true; clearSel();
+      if (m.promo) m = Object.assign({}, m, { promoTo: o.promo === 'ask' ? await askPromo() : 'Q' });
+      const before = g, after = R.apply(g, m, { keepTurn: o.keepTurn });
+      await animate(m);
+      const res = o.onMove ? await o.onMove(m, after, before) : 'ok';
+      if (res === 'undo') { await c.wait(900); g = before; board.clearPieces(); board.clearMarks('arrow'); board.setPos(g.pos); busy = false; return; }
+      g = after;
+      if (res === 'stop') { board.onSquare = null; return; }
+      if (o.reply && R.allLegal(g).length) {
+        const r = o.reply(g);
+        const rm = r && R.legal(g, r[0]).find(x => x.to === r[1]);
+        if (rm) { await c.wait(500); await animate(rm); g = R.apply(g, rm); if (o.afterReply) o.afterReply(rm, g); }
+      }
+      busy = false;
+    }
+    board.onSquare = n => {
+      if (busy) return;
+      const p = g.pos[n];
+      if (sel) { const m = moves.find(x => x.to === n); if (m) return go(m); }
+      if (p && p[0] === side) {
+        if (!o.keepTurn && g.turn !== side) return;
+        if (o.movable && !o.movable(n)) { clearSel(); c.say(o.notThis || P('Use the other piece for this task.', '이번 과제에서는 다른 기물을 쓰세요.')); return; }
+        return select(n);
+      }
+      if (sel) {
+        const pm = R.pseudo(g, sel).find(x => x.to === n);
+        const what = PN(g.pos[sel]);
+        if (pm) c.bad(g.pos[sel][1] === 'K'
+          ? P('The king can’t go there: that square is attacked.', '킹은 거기로 갈 수 없어요. 그 칸은 공격받고 있어요.')
+          : P('That move would leave your king in check.', '그렇게 두면 내 킹이 체크 상태로 남아요.'));
+        else c.bad(P(`The ${what.en.toLowerCase()} can’t move there.`, `${what.ko}${jo(what.ko, '은', '는')} 거기로 갈 수 없어요.`));
+        clearSel(); return;
+      }
+      c.say(p ? P(side === 'w' ? 'That is a black piece. You play White.' : 'That is a white piece. You play Black.', side === 'w' ? '그건 흑 기물이에요. 나는 백이에요.' : '그건 백 기물이에요. 나는 흑이에요.')
+              : P('Click one of your pieces first.', '먼저 내 기물을 클릭하세요.'));
+    };
+    return { get st() { return g; }, set(st) { g = st; clearSel(); board.clearPieces(); board.setPos(st.pos); } };
+  }
+
+  // fewest moves to land on every star (one piece, fixed blockers), by breadth-first search
+  function parFor(piece, from, stars, extra) {
+    const goal = (1 << stars.length) - 1, seen = new Set([from + ':0']);
+    let frontier = [[from, 0]];
+    for (let d = 1; d < 30 && frontier.length; d++) {
+      const next = [];
+      for (const [at, mask] of frontier) {
+        const st = R.state(Object.assign({ [at]: piece }, extra));
+        for (const m of R.legal(st, at)) {
+          const i = stars.indexOf(m.to), nm = i < 0 ? mask : mask | (1 << i);
+          if (nm === goal) return d;
+          const k = m.to + ':' + nm;
+          if (!seen.has(k) && !(m.promo)) { seen.add(k); next.push([m.to, nm]); }
+        }
+      }
+      frontier = next;
+    }
+    return 99;
+  }
+  // a piece hunting stars: land on each one, in any order
+  function starHunt(c, piece, from, stars, extra = {}) {
+    const par = parFor(piece, from, stars, extra);
+    const left = new Set(stars);
+    let n = 0;
+    board.setPos(Object.assign({ [from]: piece }, extra));
+    stars.forEach(s => board.mark(s, 'star'));
+    const upd = () => c.setTask(P(`Land on every star. <b>${left.size}</b> left · ${n} move${n === 1 ? '' : 's'} so far (best: ${par}).`,
+      `별이 있는 칸에 모두 착지하세요. 남은 별 <b>${left.size}</b>개 · 지금까지 ${n}수 (최소 ${par}수).`));
+    upd();
+    play(c, { st: R.state(Object.assign({ [from]: piece }, extra)), keepTurn: true, placed: true, onMove: m => {
+      n++;
+      if (left.has(m.to)) { left.delete(m.to); board.unmark(m.to, 'star'); board.mark(m.to, 'ok'); }
+      upd();
+      if (!left.size) {
+        c.good(n <= par ? P(`Every star in ${n} moves: the fewest possible.`, `${n}수 만에 별을 모두 잡았어요. 가장 짧은 방법이에요.`)
+          : P(`Every star in ${n} moves. It can be done in ${par}: press Back, then Next, to try again.`, `${n}수 만에 별을 모두 잡았어요. ${par}수로도 가능해요. 이전, 다음을 누르면 다시 해 볼 수 있어요.`));
+        c.done(); return 'stop';
+      }
+      return 'ok';
+    } });
+  }
+  // a short demo: plays [from, to] moves with arrows
+  async function demo(c, st, list, o = {}) {
+    let g = st;
+    for (const [f, t] of list) {
+      const m = R.legal(g, f).find(x => x.to === t) || R.pseudo(g, f).find(x => x.to === t);
+      if (!m) continue;
+      board.clearMarks('arrow'); board.arrow(f, t);
+      await c.wait(o.pause || 700);
+      board.move(f, t); if (m.ep) board.remove(m.ep); if (m.rook) board.move(m.rook[0], m.rook[1]);
+      await c.wait(650);
+      if (m.promo) { board.place(t, m.piece[0] + 'Q', { anim: true }); await c.wait(450); }
+      g = R.apply(g, m);
+    }
+    return g;
+  }
+  // multiple-choice rounds; each item: { setup(), q, opts, a, ok }
+  function rounds(c, items, wrong) {
+    let i = 0;
+    const show = () => {
+      const it = items[i];
+      board.clearMarks(); if (it.setup) it.setup();
+      c.setTask(P(`${it.q.en} (${i + 1} of ${items.length})`, `${it.q.ko} (${items.length}개 중 ${i + 1}번째)`));
+      c.choices(it.opts, async (v, b) => {
+        if (v !== it.a) { b.classList.add('wrong'); c.bad(it.no || wrong); return; }
+        b.classList.add('right'); c.good(it.ok || P('Correct.', '정답이에요.')); c.clearChoices();
+        i++;
+        await c.wait(1300);
+        if (i === items.length) { c.setTask(P(`${items.length} out of ${items.length}.`, `${items.length}문제 모두 맞혔어요.`)); c.done(); }
+        else show();
+      });
+    };
+    show();
+  }
+  // the player must play a fixed line [mine, reply, mine, reply, ...]; the other side answers by itself
+  function line(c, st, moves, side = 'w', o = {}) {
+    let k = 0;
+    const finish = () => { c.setTask(o.end || P('Line complete.', '수순을 모두 뒀어요.')); c.good(o.done || P('Well played.', '잘 뒀어요.')); c.done(); };
+    const ask = g => {
+      const [f, t] = moves[k], m = R.legal(g, f).find(x => x.to === t), n = R.san(g, m);
+      c.setTask(P(`Play <b>${n}</b>.`, `<b>${n}</b>${jo(n, '을', '를')} 두세요.`));
+    };
+    ask(st);
+    return play(c, { st, side,
+      onMove: (m, aft, before) => {
+        const [f, t] = moves[k];
+        if (m.from !== f || m.to !== t) {
+          const a = R.san(before, m), b = R.san(before, R.legal(before, f).find(x => x.to === t));
+          c.bad(P(`That is ${a}. The task asks for <b>${b}</b>.`, `그건 ${a}${jo(a, '이에요', '예요')}. 과제는 <b>${b}</b>${jo(b, '이에요', '예요')}.`));
+          return 'undo';
+        }
+        if (k + 1 >= moves.length) { finish(); return 'stop'; }
+        c.say(P(`${R.san(before, m)}. Now the other side answers.`, `${R.san(before, m)}. 이제 상대가 둬요.`));
+        return 'ok';
+      },
+      reply: () => moves[k + 1],
+      afterReply: (rm, g) => { k += 2; if (k >= moves.length) finish(); else ask(g); }
+    });
+  }
+  // build a state from a move list starting at the initial position
+  const after = (list, o = {}) => {
+    let g = R.state(START, { castle: 'KQkq' });
+    for (const [f, t] of list) { const m = R.legal(g, f).find(x => x.to === t); g = R.apply(g, m); }
+    return Object.assign(g, o);
+  };
+  const pos = (s, o) => R.state(s, o);
+
   // ---------- the course ----------
   const CHAPTERS = [
     { n: 1, t: P('The board', '체스판'), d: P('How the board is built, how to turn it, and the name of every square.', '체스판의 생김새, 놓는 방향, 칸마다 붙은 이름을 배워요.'), lessons: [1, 2, 3] },
     { n: 2, t: P('The pieces', '기물'), d: P('Meet the six pieces, set them up, and learn who moves when.', '여섯 가지 기물을 만나고, 시작 자리에 놓고, 차례를 배워요.'), lessons: [4, 5, 6] },
-    { n: 3, t: P('How pieces move', '기물의 움직임'), d: P('One piece at a time, with a small game for each.', '기물 하나씩, 작은 게임과 함께 움직임을 익혀요.'), soon: [P('The rook', '룩'), P('The bishop', '비숍'), P('The queen', '퀸'), P('The king', '킹'), P('The knight', '나이트'), P('The pawn', '폰')] },
-    { n: 4, t: P('The goal of the game', '게임의 목표'), d: P('What pieces are worth, check, checkmate and draws.', '기물의 가치, 체크, 체크메이트, 무승부를 배워요.'), soon: [P('Piece values', '기물의 가치'), P('Check', '체크'), P('Checkmate', '체크메이트'), P('Stalemate and draws', '스테일메이트와 무승부')] },
-    { n: 5, t: P('Special moves', '특별한 규칙'), d: P('Three rules that surprise every beginner.', '처음 배우는 사람이 꼭 놀라는 세 가지 규칙이에요.'), soon: [P('Castling', '캐슬링'), P('Promotion', '프로모션'), P('En passant', '앙파상')] },
-    { n: 6, t: P('Your first game', '첫 게임'), d: P('Opening rules, simple checkmates, notation and the Queen’s Gambit.', '오프닝 원칙, 기본 체크메이트, 기보 읽기, 퀸스 갬빗까지.'), soon: [P('Three opening rules', '오프닝 3원칙'), P('Basic checkmates', '기본 체크메이트'), P('Reading notation', '기보 읽기'), P('The Queen’s Gambit', '퀸스 갬빗')] }
+    { n: 3, t: P('How pieces move', '기물의 움직임'), d: P('One piece at a time, with a small game for each.', '기물 하나씩, 작은 게임과 함께 움직임을 익혀요.'), lessons: [7, 8, 9, 10, 11, 12] },
+    { n: 4, t: P('The goal of the game', '게임의 목표'), d: P('What pieces are worth, check, checkmate and draws.', '기물의 가치, 체크, 체크메이트, 무승부를 배워요.'), lessons: [13, 14, 15, 16] },
+    { n: 5, t: P('Special moves', '특별한 규칙'), d: P('Three rules that surprise every beginner.', '처음 배우는 사람이 꼭 놀라는 세 가지 규칙이에요.'), lessons: [17, 18, 19] },
+    { n: 6, t: P('Your first game', '첫 게임'), d: P('Opening rules, simple checkmates, notation and the Queen’s Gambit.', '오프닝 원칙, 기본 체크메이트, 기보 읽기, 퀸스 갬빗까지.'), lessons: [20, 21, 22, 23] }
   ];
   const TOTAL = 23;
 
@@ -648,6 +846,487 @@
       } }
   ] };
 
+  // ======================= CHAPTER 3: HOW PIECES MOVE =======================
+  // show where a piece can go: dots appear outward from the piece
+  async function showMoves(c, n, code, extra = {}, o = {}) {
+    const all = Object.assign({ [n]: code }, extra);
+    board.setPos(all, c, {});
+    board.place(n, code, { anim: true });
+    await c.wait(450);
+    const ms = R.legal(R.state(all, { turn: code[0] }), n);
+    const [f0, r0] = fr(n);
+    const dist = m => { const [f, r] = fr(m.to); return Math.max(Math.abs(f - f0), Math.abs(r - r0)); };
+    for (let d = 1; d < 8; d++) {
+      const ring = ms.filter(m => dist(m) === d); if (!ring.length) continue;
+      ring.forEach(m => board.mark(m.to, m.capture ? 'cap' : 'mv'));
+      await c.wait(110);
+    }
+    if (o.after) o.after(ms);
+  }
+  // capture task: only taking `target` (a square) counts
+  function captureTask(c, st, target, o = {}) {
+    play(c, { st, onMove: m => {
+      if (m.to === target) { c.good(o.ok); c.done(); return 'stop'; }
+      c.bad(m.capture ? P(`That captures the ${pn(m.capture)}. The task asks for the ${pn(st.pos[target])}.`, `그건 ${PN(m.capture).ko}${jo(PN(m.capture).ko, '을', '를')} 잡은 거예요. 과제는 ${PN(st.pos[target]).ko}${jo(PN(st.pos[target]).ko, '을', '를')} 잡는 거예요.`)
+        : (o.miss || P('That move captures nothing. Land on the piece’s square to take it.', '그 수로는 아무것도 잡지 못해요. 잡으려면 그 기물이 있는 칸으로 가야 해요.')));
+      return 'undo';
+    } });
+  }
+
+  LESSONS[7] = { t: P('The rook', '룩'), steps: [
+    { text: P('The <b>rook</b> moves in straight lines along ranks and files: up, down, left or right, as many squares as it likes.',
+        '<b>룩</b>은 랭크와 파일을 따라 똑바로 움직여요. 위, 아래, 왼쪽, 오른쪽으로 원하는 만큼 갈 수 있어요.'),
+      async run(c) { await showMoves(c, 'd4', 'wR'); } },
+    { text: P('Your turn to drive it. Click the rook to see its moves, then click a dot to go there.',
+        '이제 직접 움직여 봐요. 룩을 클릭하면 갈 수 있는 칸에 점이 생기고, 점을 클릭하면 그 칸으로 가요.'),
+      task: P('Land on every star.', '별이 있는 칸에 모두 착지하세요.'),
+      hint: P('The rook turns corners only between moves: go straight, stop, then go straight again.', '룩은 한 번에 한 방향으로만 가요. 직진하고 멈췄다가, 다음 수에 다시 직진하세요.'),
+      run(c) { starHunt(c, 'wR', 'a1', ['a6', 'f6', 'f2', 'h8']); } },
+    { text: P('The rook <b>cannot jump</b>. Any piece in its way blocks the road. It can capture an enemy piece that blocks it, but it can’t go past it.',
+        '룩은 <b>뛰어넘을 수 없어요</b>. 길에 기물이 있으면 막혀요. 막고 있는 기물이 상대 것이면 잡을 수는 있지만, 그 너머로는 못 가요.'),
+      task: P('Click the rook to see where it can go.', '룩을 클릭해서 갈 수 있는 칸을 확인하세요.'),
+      run(c) {
+        const st = pos('wRd4 wPd6 wPb4 bNg4 bPd2');
+        play(c, { st, onSelect: n => {
+          if (n !== 'd4') return;
+          c.good(P('It stops in front of your own pawns. It can capture the black knight and the black pawn (the corner marks), but not go past them.',
+            '내 폰 앞에서 멈춰요. 흑 나이트와 흑 폰은 잡을 수 있지만(모서리 표시), 그 너머로는 갈 수 없어요.'));
+          c.done();
+        }, onMove: () => 'undo' });
+      } },
+    { text: P('To <b>capture</b>, move onto an enemy piece’s square. The enemy piece is taken off the board.',
+        '<b>잡기</b>는 상대 기물이 있는 칸으로 들어가는 거예요. 잡힌 기물은 체스판에서 빠져요.'),
+      task: P('Capture the black bishop.', '흑 비숍을 잡으세요.'),
+      run(c) { captureTask(c, pos('wRc2 bBg2 bNc6'), 'g2', { ok: P('Captured. The bishop is off the board.', '잡았어요. 비숍이 판에서 빠졌어요.') }); } }
+  ] };
+
+  LESSONS[8] = { t: P('The bishop', '비숍'), steps: [
+    { text: P('The <b>bishop</b> moves along diagonals, as many squares as it likes. Like the rook, it can’t jump.',
+        '<b>비숍</b>은 대각선을 따라 원하는 만큼 움직여요. 룩처럼 다른 기물을 뛰어넘을 수는 없어요.'),
+      async run(c) { await showMoves(c, 'd4', 'wB'); } },
+    { text: P('Because it only moves diagonally, a bishop <b>stays on the colour it starts on</b> for the whole game.',
+        '대각선으로만 움직이기 때문에, 비숍은 게임 내내 <b>처음 선 칸과 같은 색 칸</b>에만 있어요.'),
+      task: P('Land on every star.', '별이 있는 칸에 모두 착지하세요.'),
+      hint: P('All the stars are on dark squares, like the bishop. Zigzag between them.', '별은 모두 비숍처럼 어두운 칸에 있어요. 지그재그로 이동해 보세요.'),
+      run(c) { starHunt(c, 'wB', 'c1', ['g5', 'e7', 'a3']); } },
+    { text: P('A quick question.', '간단한 질문이에요.'),
+      task: P('The bishop on c1 stands on a dark square. Can it ever reach a light square?', 'c1의 비숍은 어두운 칸에 있어요. 이 비숍이 밝은 칸에 갈 수 있을까요?'),
+      run(c) {
+        board.setPos({ c1: 'wB' }); board.mark('c1', 'sel');
+        c.quiz([{ t: P('Yes', '네'), v: 'y' }, { t: P('No', '아니요'), v: 'n' }], 'n',
+          P('Right, never. That is why each player has two bishops: one for the light squares and one for the dark.', '맞아요, 절대 못 가요. 그래서 각자 비숍이 두 개예요. 하나는 밝은 칸, 하나는 어두운 칸을 맡아요.'),
+          P('Look again: every diagonal step keeps the same colour.', '다시 보세요. 대각선으로 한 칸 갈 때마다 색이 그대로예요.'));
+      } },
+    { text: P('Now use the bishop to capture.', '이번에는 비숍으로 잡아 볼게요.'),
+      task: P('Capture the black rook.', '흑 룩을 잡으세요.'),
+      run(c) { captureTask(c, pos('wBf1 bRb5 bPh3'), 'b5', { ok: P('Taken along the long diagonal.', '긴 대각선을 따라 잡았어요.') }); } }
+  ] };
+
+  LESSONS[9] = { t: P('The queen', '퀸'), steps: [
+    { text: P('The <b>queen</b> moves like a rook and a bishop together: straight lines and diagonals, as far as she likes. That makes her the strongest piece.',
+        '<b>퀸</b>은 룩과 비숍을 합친 것처럼 움직여요. 직선과 대각선 모두, 원하는 만큼 갈 수 있어서 가장 강한 기물이에요.'),
+      async run(c) { await showMoves(c, 'd4', 'wQ'); } },
+    { text: P('Try her speed.', '퀸의 속도를 느껴 보세요.'),
+      task: P('Land on every star.', '별이 있는 칸에 모두 착지하세요.'),
+      hint: P('Mix straight lines and diagonals.', '직선과 대각선을 섞어서 움직여 보세요.'),
+      run(c) { starHunt(c, 'wQ', 'd1', ['h5', 'a5', 'e8', 'b2']); } },
+    { text: P('One move can reach very far.', '한 번에 아주 멀리까지 갈 수 있어요.'),
+      task: P('Capture the black rook in one move.', '한 번에 흑 룩을 잡으세요.'),
+      run(c) { captureTask(c, pos('wQd1 bRh5 bNd8 bPa4'), 'h5', { ok: P('Straight down the diagonal. That is the queen’s reach.', '대각선으로 곧장 잡았어요. 이게 퀸의 힘이에요.') }); } }
+  ] };
+
+  LESSONS[10] = { t: P('The king', '킹'), steps: [
+    { text: P('The <b>king</b> moves one square in any direction. Slow, but he is the piece you must protect.',
+        '<b>킹</b>은 모든 방향으로 한 칸씩 움직여요. 느리지만, 꼭 지켜야 하는 기물이에요.'),
+      async run(c) { await showMoves(c, 'e4', 'wK'); } },
+    { text: P('Walk the king.', '킹을 걸어 보세요.'),
+      task: P('Land on every star.', '별이 있는 칸에 모두 착지하세요.'),
+      run(c) { starHunt(c, 'wK', 'e1', ['e3', 'g3', 'g1']); } },
+    { text: P('The king may <b>never move into danger</b>: onto a square an enemy piece attacks. The black rook attacks the whole 5th rank.',
+        '킹은 <b>위험한 칸으로 갈 수 없어요</b>. 상대 기물이 공격하는 칸이 위험한 칸이에요. 지금 흑 룩이 5 랭크 전체를 공격하고 있어요.'),
+      task: P('Move the king to a safe square.', '킹을 안전한 칸으로 옮기세요.'),
+      hint: P('The dots show only safe squares. Rank 5 is off limits.', '점은 안전한 칸에만 생겨요. 5 랭크로는 갈 수 없어요.'),
+      run(c) {
+        const st = pos('wKe4 bRa5');
+        board.setPos(st.pos); board.mark(['b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5'], 'hl');
+        play(c, { st, placed: true, onMove: () => { c.good(P('Safe. The king never steps into an attack.', '안전해요. 킹은 절대 공격받는 칸으로 들어가지 않아요.')); c.done(); return 'stop'; } });
+      } }
+  ] };
+
+  LESSONS[11] = { t: P('The knight', '나이트'), steps: [
+    { text: P('The <b>knight</b> moves in an L: two squares in a straight line, then one square to the side. It always lands on a square of the other colour.',
+        '<b>나이트</b>는 L자로 움직여요. 한 방향으로 두 칸 간 다음, 옆으로 한 칸 가요. 항상 원래와 다른 색 칸에 내려요.'),
+      async run(c) { await showMoves(c, 'd4', 'wN', {}, { after: ms => { ms.slice(0, 2).forEach(m => board.arrow('d4', m.to)); } }); } },
+    { text: P('The knight is the only piece that can <b>jump</b> over others. That is why it can leave the starting position before any pawn moves.',
+        '나이트는 다른 기물을 <b>뛰어넘을 수 있는</b> 유일한 기물이에요. 그래서 폰이 움직이기 전에도 나갈 수 있어요.'),
+      task: P('Jump a knight out from behind the pawns.', '폰 뒤에 있는 나이트를 뛰어넘어 꺼내 보세요.'),
+      run(c) {
+        play(c, { st: R.state(START), movable: n => n === 'b1' || n === 'g1', notThis: P('Only the knights can jump. Pick the knight on b1 or g1.', '뛰어넘을 수 있는 건 나이트뿐이에요. b1이나 g1의 나이트를 고르세요.'),
+          onMove: m => { c.good(P(`Over the pawns to ${m.to}.`, `폰을 넘어 ${m.to}${jo(m.to, '으로', '로')} 나왔어요.`)); c.done(); return 'stop'; } });
+      } },
+    { text: P('Knight moves take practice. Count “two, then one”.', '나이트 움직임은 연습이 필요해요. “두 칸, 그리고 옆으로 한 칸”을 세어 보세요.'),
+      task: P('Land on every star.', '별이 있는 칸에 모두 착지하세요.'),
+      hint: P('From b1, the knight can reach c3. From c3, it can reach e4.', 'b1에서 나이트는 c3에 갈 수 있어요. c3에서는 e4에 갈 수 있어요.'),
+      run(c) { starHunt(c, 'wN', 'b1', ['c3', 'e4', 'f6']); } }
+  ] };
+
+  LESSONS[12] = { t: P('The pawn', '폰'), steps: [
+    { text: P('The <b>pawn</b> moves straight forward, one square at a time. On its very first move it may go two squares. It never moves backwards.',
+        '<b>폰</b>은 앞으로 한 칸씩만 가요. 처음 움직일 때만 두 칸까지 갈 수 있고, 뒤로는 절대 못 가요.'),
+      async run(c) {
+        board.setPos({ e2: 'wP', c5: 'wP' }, c, { anim: true });
+        await c.wait(600); board.mark(['e3', 'e4'], 'mv'); await c.wait(400); board.mark('c6', 'mv');
+      } },
+    { text: P('Pawns <b>capture diagonally</b>, one square forward. A piece straight ahead blocks them: pawns can’t capture forwards.',
+        '폰은 <b>대각선 앞으로 한 칸</b> 가면서 잡아요. 바로 앞에 기물이 있으면 막혀요. 앞으로는 잡을 수 없어요.'),
+      task: P('Capture a black piece with the pawn.', '폰으로 흑 기물을 잡으세요.'),
+      hint: P('Look one square diagonally forward, left or right.', '대각선 앞 한 칸, 왼쪽이나 오른쪽을 보세요.'),
+      run(c) { play(c, { st: pos('wPe4 bPd5 bNf5 bBe5'), onMove: m => { c.good(P(`Captured on ${m.to}. The bishop straight ahead stays: pawns can’t take forwards.`, `${m.to}에서 잡았어요. 바로 앞의 비숍은 잡을 수 없어요.`)); c.done(); return 'stop'; } }); } },
+    { text: P('Pawns are slow, but a pawn that reaches the far side gets a big reward.', '폰은 느리지만, 반대편 끝까지 가면 큰 보상을 받아요.'),
+      task: P('Walk the pawn all the way to the other side.', '폰을 반대편 끝까지 걸어가게 하세요.'),
+      hint: P('Use the two-square first move to save time.', '첫 수에 두 칸 가면 시간을 아낄 수 있어요.'),
+      run(c) {
+        let n = 0;
+        play(c, { st: pos('wPd2'), keepTurn: true, onMove: m => {
+          n++;
+          if (m.promo) { c.good(P(`It became a queen in ${n} moves! That is called promotion: you will meet it again in Chapter 5.`, `${n}수 만에 퀸이 되었어요! 이걸 프로모션이라고 해요. 5장에서 다시 배워요.`)); c.done(); return 'stop'; }
+          c.say(P(`${n} move${n > 1 ? 's' : ''}. Keep going.`, `${n}수. 계속 가세요.`)); return 'ok';
+        } });
+      } }
+  ] };
+
+  // ======================= CHAPTER 4: THE GOAL OF THE GAME =======================
+  const VAL = { pawn: '1', knight: '3', bishop: '3', rook: '5', queen: '9', king: '∞' };
+  LESSONS[13] = { t: P('Piece values', '기물의 가치'), steps: [
+    { text: P('Pieces are not equal. Players count them in points: pawn 1, knight 3, bishop 3, rook 5, queen 9. The king has no price: lose him and you lose the game.',
+        '기물마다 가치가 달라요. 점수로 세면 폰 1, 나이트 3, 비숍 3, 룩 5, 퀸 9예요. 킹은 값을 매길 수 없어요. 킹을 잃으면 게임에서 지니까요.'),
+      run(c) { c.stage('lineup'); lineup.show({ names: true, sub: t => VAL[t] + (t === 'king' ? '' : (lang === 'ko' ? '점' : t === 'pawn' ? ' point' : ' points')) }); } },
+    { text: P('Use the points to compare trades.', '점수로 교환을 비교해 보세요.'),
+      task: P('Which is worth more?', '어느 쪽이 더 가치 있을까요?'),
+      run(c) {
+        c.stage('lineup'); lineup.show({ names: true, sub: t => VAL[t] });
+        const AB = (a, b) => [{ t: a, v: 'a' }, { t: b, v: 'b' }, { t: P('The same', '같아요'), v: '=' }];
+        rounds(c, [
+          { q: P('A rook, or a knight and a pawn?', '룩 하나, 아니면 나이트와 폰?'), opts: AB(P('Rook', '룩'), P('Knight + pawn', '나이트 + 폰')), a: 'a', ok: P('Rook: 5 against 3 + 1 = 4.', '룩이에요. 5 대 3 + 1 = 4.') },
+          { q: P('A queen, or two rooks?', '퀸 하나, 아니면 룩 두 개?'), opts: AB(P('Queen', '퀸'), P('Two rooks', '룩 두 개')), a: 'b', ok: P('Two rooks: 5 + 5 = 10 against 9.', '룩 두 개예요. 5 + 5 = 10 대 9.') },
+          { q: P('A bishop, or a knight?', '비숍, 아니면 나이트?'), opts: AB(P('Bishop', '비숍'), P('Knight', '나이트')), a: '=', ok: P('The same: both are worth 3.', '같아요. 둘 다 3점이에요.') }
+        ], P('Add up the points on each side.', '양쪽 점수를 더해 보세요.'));
+      } },
+    { text: P('Points help you choose what to capture.', '점수를 알면 무엇을 잡을지 고를 수 있어요.'),
+      task: P('Your knight can take two black pieces. Capture the more valuable one.', '내 나이트가 흑 기물 두 개를 잡을 수 있어요. 더 가치 있는 쪽을 잡으세요.'),
+      hint: P('A rook is worth 5, a pawn 1.', '룩은 5점, 폰은 1점이에요.'),
+      run(c) {
+        play(c, { st: pos('wNe4 bRf6 bPd6'), onMove: m => {
+          if (m.to === 'f6') { c.good(P('Five points instead of one. Good trade sense.', '1점 대신 5점을 얻었어요. 좋은 판단이에요.')); c.done(); return 'stop'; }
+          c.bad(m.capture ? P('That pawn is worth only 1. Is there something bigger?', '그 폰은 1점밖에 안 돼요. 더 큰 게 있지 않나요?') : P('Capture one of the black pieces.', '흑 기물 중 하나를 잡으세요.'));
+          return 'undo';
+        } });
+      } }
+  ] };
+
+  LESSONS[14] = { t: P('Check', '체크'), steps: [
+    { text: P('When a piece attacks the king, the king is in <b>check</b>. Whoever is in check must get out of it straight away.',
+        '기물이 킹을 공격하면 킹은 <b>체크</b> 상태가 돼요. 체크를 당한 쪽은 바로 벗어나야 해요.'),
+      async run(c) {
+        board.setPos(pos('bKe8 wRe1 wKg1').pos, c, { anim: true });
+        await c.wait(600); board.arrow('e1', 'e8'); board.mark('e8', 'hl2');
+      } },
+    { text: P('There are three ways out of check: <b>move</b> the king, <b>block</b> the attack, or <b>capture</b> the attacker. First: move.',
+        '체크에서 벗어나는 방법은 세 가지예요. 킹을 <b>옮기거나</b>, 공격을 <b>막거나</b>, 공격한 기물을 <b>잡는</b> 거예요. 먼저 옮기기부터 해 볼게요.'),
+      task: P('You are in check. Get out by moving the king.', '체크를 당했어요. 킹을 옮겨서 벗어나세요.'),
+      run(c) {
+        const st = pos('wKe1 wPd2 wPf2 bRe8 bKa8');
+        board.setPos(st.pos); board.arrow('e8', 'e1'); board.mark('e1', 'hl2');
+        play(c, { st, placed: true, onMove: () => { c.good(P('Out of the rook’s line. Check is over.', '룩의 길에서 벗어났어요. 체크가 끝났어요.')); c.done(); return 'stop'; } });
+      } },
+    { text: P('Second: <b>block</b>. Put one of your pieces between the attacker and your king.', '두 번째는 <b>막기</b>예요. 공격하는 기물과 내 킹 사이에 내 기물을 놓아요.'),
+      task: P('Block the bishop’s check with your rook.', '룩으로 비숍의 체크를 막으세요.'),
+      hint: P('The bishop attacks along c5, d4, e3, f2. Which of those can your rook reach?', '비숍은 c5, d4, e3, f2를 따라 공격해요. 룩이 갈 수 있는 칸이 있나요?'),
+      run(c) {
+        const st = pos('wKg1 wPg2 wPh2 wRd1 bBc5 bKa8');
+        board.setPos(st.pos); board.arrow('c5', 'g1'); board.mark('g1', 'hl2');
+        play(c, { st, placed: true, onMove: m => {
+          if (m.piece[1] === 'R') { c.good(P('Blocked. The rook stands in the way.', '막았어요. 룩이 길을 가로막고 있어요.')); c.done(); return 'stop'; }
+          c.bad(P('Moving the king works too, but this time block with the rook.', '킹을 옮겨도 되지만, 이번에는 룩으로 막아 보세요.')); return 'undo';
+        } });
+      } },
+    { text: P('Third: <b>capture</b> the piece that gives check.', '세 번째는 체크를 건 기물을 <b>잡는</b> 거예요.'),
+      task: P('Capture the black queen.', '흑 퀸을 잡으세요.'),
+      hint: P('Your king can’t take her: the bishop on h5 protects her. Your knight can.', '킹은 잡을 수 없어요. h5의 비숍이 퀸을 지키고 있거든요. 나이트는 잡을 수 있어요.'),
+      run(c) {
+        const st = pos('wKe1 wNc3 bQe2 bBh5 bKa8');
+        board.setPos(st.pos); board.mark('e1', 'hl2');
+        play(c, { st, placed: true, onMove: m => {
+          if (m.to === 'e2') { c.good(P('The knight takes the queen. Check is over, and you won 9 points.', '나이트가 퀸을 잡았어요. 체크도 끝나고 9점도 얻었어요.')); c.done(); return 'stop'; }
+          c.bad(P('Safe, but you can do better: capture the queen.', '안전하긴 하지만 더 좋은 수가 있어요. 퀸을 잡으세요.')); return 'undo';
+        } });
+      } }
+  ] };
+
+  LESSONS[15] = { t: P('Checkmate', '체크메이트'), steps: [
+    { text: P('<b>Checkmate</b> means the king is in check and there is no way out: he can’t move, the attack can’t be blocked, and the attacker can’t be captured. Checkmate ends the game.',
+        '<b>체크메이트</b>는 킹이 체크를 당했는데 벗어날 방법이 없는 상태예요. 킹이 피할 곳도 없고, 막을 수도, 잡을 수도 없어요. 체크메이트가 되면 게임이 끝나요.'),
+      async run(c) {
+        board.setPos(pos('bKg8 bPf7 bPg7 bPh7 wRe8 wKg1').pos, c, { anim: true, stagger: 40 });
+        await c.wait(400); board.mark('g8', 'hl2'); board.mark(['f8', 'h8'], 'hl'); board.arrow('e8', 'h8');
+      } },
+    { text: P('Your turn. The black king is trapped behind his own pawns.', '이제 직접 해 봐요. 흑 킹이 자기 폰들에 갇혀 있어요.'),
+      task: P('Find checkmate in one move.', '한 수 만에 체크메이트를 찾으세요.'),
+      hint: P('Attack the king along the back rank, where his pawns can’t help.', '폰이 도와줄 수 없는 맨 뒷줄을 따라 킹을 공격해 보세요.'),
+      run(c) { mateTask(c, pos('bKg8 bPf7 bPg7 bPh7 wRa1 wKg1')); } },
+    { text: P('The queen and king make a strong team.', '퀸과 킹은 강한 팀이에요.'),
+      task: P('Checkmate with the queen.', '퀸으로 체크메이트하세요.'),
+      hint: P('Your king on b6 guards a7, b7 and c7. Let the queen do the rest.', 'b6의 킹이 a7, b7, c7을 지켜요. 나머지는 퀸에게 맡기세요.'),
+      run(c) { mateTask(c, pos('bKa8 wKb6 wQd5')); } }
+  ] };
+  function mateTask(c, st, o = {}) {
+    play(c, { st, onMove: (m, aft) => {
+      const s = R.status(aft);
+      if (s === 'mate') { c.good(o.ok || P(`${R.san(st, m)}: checkmate! The game is over.`, `${R.san(st, m)}, 체크메이트! 게임이 끝났어요.`)); if (o.onMate) o.onMate(); else c.done(); return 'stop'; }
+      c.bad(s === 'stalemate' ? P('That is stalemate: Black is not in check but has no legal move, so the game is a draw. Try again.', '그건 스테일메이트예요. 흑은 체크가 아닌데 둘 수 있는 수가 없어서 무승부가 돼요. 다시 해 보세요.')
+        : s === 'check' ? P('Check, but not mate: the king can still escape. Look for a move that leaves him nowhere to go.', '체크지만 메이트는 아니에요. 킹이 아직 피할 수 있어요. 피할 곳이 없게 만드는 수를 찾아보세요.')
+        : P('That is not check. Attack the king.', '그 수는 체크가 아니에요. 킹을 공격하세요.'));
+      return 'undo';
+    } });
+  }
+
+  LESSONS[16] = { t: P('Stalemate and draws', '스테일메이트와 무승부'), steps: [
+    { text: P('If the player to move is <b>not in check</b> but has <b>no legal move</b>, it is <b>stalemate</b>. The game is a draw: nobody wins. Here, Black is to move: every square around the king is attacked, but the king itself is not.',
+        '둘 차례인 쪽이 <b>체크는 아닌데 둘 수 있는 수가 없으면</b> <b>스테일메이트</b>예요. 게임은 무승부, 아무도 이기지 못해요. 지금은 흑 차례예요. 킹 주변 칸은 모두 공격받지만, 킹 자체는 공격받지 않아요.'),
+      async run(c) {
+        board.setPos(pos('bKa8 wQb6 wKe1').pos, c, { anim: true });
+        await c.wait(300); board.mark(['a7', 'b7', 'b8'], 'hl'); board.mark('a8', 'sel');
+      } },
+    { text: P('Tell them apart.', '구별해 보세요.'),
+      task: P('Black to move. Checkmate, stalemate or neither?', '흑 차례예요. 체크메이트, 스테일메이트, 둘 다 아님 중 무엇일까요?'),
+      run(c) {
+        const opts = [{ t: P('Checkmate', '체크메이트'), v: 'mate' }, { t: P('Stalemate', '스테일메이트'), v: 'stalemate' }, { t: P('Neither', '둘 다 아님'), v: '' }];
+        const item = s => { const st = pos(s, { turn: 'b' }); const a = R.status(st); return { setup: () => { board.clearPieces(); board.setPos(st.pos); }, q: P('Black to move. Checkmate, stalemate or neither?', '흑 차례예요. 체크메이트, 스테일메이트, 둘 다 아님?'), opts, a: a === 'check' ? '' : a }; };
+        rounds(c, [item('bKh8 wQg7 wKf6'), item('bKh8 wQg6 wKf7'), item('bKe8 wRe1 wKg1 bPd7')],
+          P('Ask two questions: is the king in check? Does Black have any legal move?', '두 가지를 물어보세요. 킹이 체크 상태인가? 흑이 둘 수 있는 수가 있나?'));
+      } },
+    { text: P('When you are winning, watch out for stalemate: it throws the win away.', '이기고 있을 때는 스테일메이트를 조심하세요. 다 이긴 게임이 무승부가 돼요.'),
+      task: P('Checkmate, without stalemating.', '스테일메이트 없이 체크메이트하세요.'),
+      hint: P('A move that takes every square but gives no check is stalemate. Give check too.', '모든 칸을 막아도 체크가 아니면 스테일메이트예요. 체크도 함께 걸어야 해요.'),
+      run(c) { mateTask(c, pos('bKa8 wKc7 wQd5')); } },
+    { text: P('A game is also a <b>draw</b> when neither side has enough pieces left to checkmate (like king against king), when the same position appears three times, or when both players agree.',
+        '양쪽 모두 체크메이트할 기물이 부족할 때(킹 대 킹처럼), 같은 장면이 세 번 반복될 때, 두 사람이 합의할 때도 <b>무승부</b>예요.'),
+      run(c) { board.setPos({ e4: 'wK', e6: 'bK' }); } }
+  ] };
+
+  // ======================= CHAPTER 5: SPECIAL MOVES =======================
+  const CASTLE_POS = 'wKe1 wRa1 wRh1 wPa2 wPb2 wPc2 wPd2 wPe2 wPf2 wPg2 wPh2 bKe8 bPd7 bPe7 bPf7';
+  LESSONS[17] = { t: P('Castling', '캐슬링'), steps: [
+    { text: P('<b>Castling</b> is a special move that tucks the king into safety and brings a rook into play. The king moves <b>two squares</b> toward a rook, and the rook jumps to the square on the king’s other side.',
+        '<b>캐슬링</b>은 킹을 안전한 곳으로 숨기고 룩을 꺼내는 특별한 수예요. 킹이 룩 쪽으로 <b>두 칸</b> 가고, 룩은 킹을 넘어 반대쪽 옆 칸으로 와요.'),
+      async run(c) {
+        const st = pos(CASTLE_POS, { castle: 'KQ' });
+        board.setPos(st.pos); await c.wait(700);
+        await demo(c, st, [['e1', 'g1']]);
+      } },
+    { text: P('Castling is the only move where two pieces move at once. You move the king; the rook follows by itself.', '캐슬링은 한 번에 두 기물이 움직이는 유일한 수예요. 킹을 옮기면 룩은 저절로 따라와요.'),
+      task: P('Castle kingside: move the king two squares toward the h1 rook.', '킹사이드 캐슬링을 하세요. 킹을 h1 룩 쪽으로 두 칸 옮기면 돼요.'),
+      run(c) {
+        play(c, { st: pos(CASTLE_POS, { castle: 'KQ' }), onMove: m => {
+          if (m.castle === 'K') { c.good(P('Castled kingside: O-O. The king is tucked in the corner.', '킹사이드 캐슬링(O-O) 완료. 킹이 구석에 안전하게 들어갔어요.')); c.done(); return 'stop'; }
+          c.bad(m.castle ? P('That is queenside castling. This time go toward h1.', '그건 퀸사이드 캐슬링이에요. 이번에는 h1 쪽으로 가세요.') : P('Click the king and pick the dot two squares to the right.', '킹을 클릭하고, 오른쪽으로 두 칸 떨어진 점을 고르세요.'));
+          return 'undo';
+        } });
+      } },
+    { text: P('You can also castle on the queen’s side, toward the a1 rook.', '퀸 쪽, a1 룩 방향으로도 캐슬링할 수 있어요.'),
+      task: P('Castle queenside: the king goes two squares toward a1.', '퀸사이드 캐슬링을 하세요. 킹이 a1 쪽으로 두 칸 가요.'),
+      run(c) {
+        play(c, { st: pos(CASTLE_POS, { castle: 'KQ' }), onMove: m => {
+          if (m.castle === 'Q') { c.good(P('Castled queenside: O-O-O.', '퀸사이드 캐슬링(O-O-O) 완료.')); c.done(); return 'stop'; }
+          c.bad(P('Go the other way: two squares toward the a1 rook.', '반대쪽이에요. a1 룩 쪽으로 두 칸 가세요.')); return 'undo';
+        } });
+      } },
+    { text: P('You may castle only if the king and that rook <b>have not moved yet</b>, the squares between them are <b>empty</b>, and the king is <b>not in check</b> and does not pass through or land on an <b>attacked</b> square.',
+        '캐슬링은 킹과 그 룩이 <b>한 번도 움직이지 않았고</b>, 둘 사이 칸이 <b>비어 있고</b>, 킹이 <b>체크 상태가 아니며</b> <b>공격받는 칸</b>을 지나가거나 그 칸에 도착하지 않을 때만 할 수 있어요.'),
+      task: P('Can White castle kingside here?', '여기서 백이 킹사이드 캐슬링을 할 수 있을까요?'),
+      run(c) {
+        board.setPos(pos('wKe1 wRh1 wPf2 wPg2 wPh2 bBc4 bKe8').pos);
+        board.arrow('c4', 'f1');
+        c.quiz([{ t: P('Yes', '네'), v: 'y' }, { t: P('No', '아니요'), v: 'n' }], 'n',
+          P('Right. The bishop attacks f1, and the king may not pass through an attacked square.', '맞아요. 비숍이 f1을 공격하고 있고, 킹은 공격받는 칸을 지나갈 수 없어요.'),
+          P('Look at the bishop’s arrow. Which square does the king cross on its way to g1?', '비숍의 화살표를 보세요. 킹이 g1으로 가는 길에 어느 칸을 지나가나요?'));
+      } }
+  ] };
+
+  LESSONS[18] = { t: P('Promotion', '프로모션'), steps: [
+    { text: P('When a pawn reaches the far side of the board, it <b>promotes</b>: it turns into a queen, rook, bishop or knight. Almost everyone picks a queen.',
+        '폰이 반대편 끝에 닿으면 <b>프로모션</b>해요. 퀸, 룩, 비숍, 나이트 중 하나로 바뀌어요. 대부분 퀸을 골라요.'),
+      async run(c) { const st = pos('wPe7 wKa1 bKh6'); board.setPos(st.pos); await c.wait(600); await demo(c, st, [['e7', 'e8']]); } },
+    { text: P('This time you choose.', '이번에는 직접 골라 보세요.'),
+      task: P('Promote the pawn.', '폰을 프로모션하세요.'),
+      run(c) {
+        play(c, { st: pos('wPc7 wKa1 bKh6'), promo: 'ask', onMove: m => {
+          if (m.promo) { c.setTask(P('Promoted.', '프로모션했어요.')); c.good(P(`Your pawn is now a ${L(PN('w' + m.promoTo)).toLowerCase()}. Two queens on the board are allowed, too.`, `폰이 ${L(PN('w' + m.promoTo))}${jo(L(PN('w' + m.promoTo)), '이', '가')} 되었어요. 퀸이 두 개가 되어도 괜찮아요.`)); c.done(); return 'stop'; }
+          return 'undo';
+        } });
+      } },
+    { text: P('A pawn can also promote by capturing, because pawns capture diagonally.', '폰은 대각선으로 잡기 때문에, 잡으면서 프로모션할 수도 있어요.'),
+      task: P('The square ahead is blocked. Promote anyway.', '앞 칸이 막혀 있어요. 그래도 프로모션해 보세요.'),
+      hint: P('Capture the rook on h8.', 'h8의 룩을 잡아 보세요.'),
+      run(c) {
+        play(c, { st: pos('wPg7 bRh8 bNg8 wKa1 bKa8'), onMove: m => {
+          if (m.promo) { c.good(P('Capture and promotion in one move: a new queen on h8.', '잡기와 프로모션을 한 번에. h8에 새 퀸이 생겼어요.')); c.done(); return 'stop'; }
+          c.bad(P('Use the pawn: it captures diagonally.', '폰을 쓰세요. 폰은 대각선으로 잡아요.')); return 'undo';
+        } });
+      } }
+  ] };
+
+  LESSONS[19] = { t: P('En passant', '앙파상'), steps: [
+    { text: P('<b>En passant</b> (French for “in passing”): if an enemy pawn moves two squares and lands right beside your pawn, your pawn may capture it as if it had moved only one square. Only on the very next move.',
+        '<b>앙파상</b>은 프랑스어로 “지나가는 길에”라는 뜻이에요. 상대 폰이 두 칸 전진해서 내 폰 바로 옆에 서면, 한 칸만 온 것처럼 대각선으로 잡을 수 있어요. 단, 바로 다음 수에만 가능해요.'),
+      async run(c) {
+        let st = pos('wPe5 bPd7 wKa1 bKh8', { turn: 'b' });
+        board.setPos(st.pos); await c.wait(700);
+        st = await demo(c, st, [['d7', 'd5']]);
+        await c.wait(400); board.mark('d6', 'mv');
+        await demo(c, st, [['e5', 'd6']]);
+      } },
+    { text: P('Black just pushed the f-pawn two squares, from f7 to f5.', '흑이 방금 f 폰을 f7에서 f5로 두 칸 옮겼어요.'),
+      task: P('Capture it en passant.', '앙파상으로 잡으세요.'),
+      hint: P('Your pawn on e5 captures diagonally to f6, and the pawn on f5 disappears.', 'e5의 폰이 대각선으로 f6에 가면 f5의 폰이 사라져요.'),
+      run(c) {
+        const st = pos('wPe5 bPf5 wKe1 bKe8', { ep: 'f6' });
+        board.setPos(st.pos); board.arrow('f7', 'f5');
+        play(c, { st, placed: true, onMove: m => {
+          if (m.ep) { board.clearMarks('arrow'); c.good(P('En passant: exf6. The black pawn is gone.', '앙파상 성공: exf6. 흑 폰이 사라졌어요.')); c.done(); return 'stop'; }
+          c.bad(P('Not that. Capture the f5 pawn by moving to f6.', '그게 아니에요. f6으로 가서 f5의 폰을 잡으세요.')); return 'undo';
+        } });
+      } },
+    { text: P('One last check.', '마지막으로 확인해 볼게요.'),
+      task: P('Black moved this pawn d7–d6, then d6–d5: one square at a time. Can White capture it en passant?', '흑이 이 폰을 d7–d6, d6–d5로 한 칸씩 옮겼어요. 백이 앙파상으로 잡을 수 있을까요?'),
+      run(c) {
+        board.setPos(pos('wPe5 bPd5 wKa1 bKh8').pos); board.arrow('d6', 'd5');
+        c.quiz([{ t: P('Yes', '네'), v: 'y' }, { t: P('No', '아니요'), v: 'n' }], 'n',
+          P('Right. En passant only works right after a two-square pawn move.', '맞아요. 앙파상은 폰이 두 칸 움직인 직후에만 할 수 있어요.'),
+          P('Look at how the pawn arrived: one square at a time.', '폰이 어떻게 왔는지 보세요. 한 칸씩 왔어요.'));
+      } }
+  ] };
+
+  // ======================= CHAPTER 6: YOUR FIRST GAME =======================
+  LESSONS[20] = { t: P('Three opening rules', '오프닝 3원칙'), steps: [
+    { text: P('Three simple rules for the start of a game: <b>1.</b> take the centre with pawns, <b>2.</b> bring out your knights and bishops, <b>3.</b> castle to keep your king safe.',
+        '게임 초반의 세 가지 원칙이에요. <b>1.</b> 폰으로 중앙을 차지하기, <b>2.</b> 나이트와 비숍 꺼내기, <b>3.</b> 캐슬링으로 킹 지키기.'),
+      run(c) { board.setPos(START); board.mark(['d4', 'e4', 'd5', 'e5'], 'hl2'); } },
+    { text: P('Rule 1: the four squares in the middle are the most important on the board.', '1원칙: 가운데 네 칸이 체스판에서 가장 중요한 칸이에요.'),
+      task: P('Play a first move that puts a pawn in the centre.', '폰을 중앙에 놓는 첫 수를 두세요.'),
+      hint: P('Push the e-pawn or the d-pawn two squares.', 'e 폰이나 d 폰을 두 칸 전진시켜 보세요.'),
+      run(c) {
+        board.mark(['d4', 'e4', 'd5', 'e5'], 'hl');
+        play(c, { st: after([]), onMove: (m, a, b) => {
+          if (['e4', 'd4'].includes(m.to) && m.piece === 'wP') { c.good(P(`${R.san(b, m)}: a classic first move.`, `${R.san(b, m)}, 가장 많이 두는 첫 수예요.`)); c.done(); return 'stop'; }
+          c.bad(P('That is legal, but it doesn’t put a pawn on a centre square. Try e4 or d4.', '둘 수는 있지만, 폰이 중앙에 서지 않아요. e4나 d4를 두어 보세요.')); return 'undo';
+        } });
+      } },
+    { text: P('Rule 2: develop. Knights and bishops should leave the back rank early.', '2원칙: 기물을 꺼내세요. 나이트와 비숍은 일찍 맨 뒷줄을 떠나야 해요.'),
+      task: P('Develop a knight toward the centre.', '나이트를 중앙 쪽으로 꺼내세요.'),
+      hint: P('Nf3 or Nc3. A knight on the edge controls fewer squares.', 'Nf3나 Nc3예요. 가장자리의 나이트는 지배하는 칸이 적어요.'),
+      run(c) {
+        play(c, { st: after([['e2', 'e4'], ['e7', 'e5']]), onMove: (m, a, b) => {
+          if (['f3', 'c3'].includes(m.to) && m.piece === 'wN') { c.good(P(`${R.san(b, m)}: the knight eyes the centre.`, `${R.san(b, m)}, 나이트가 중앙을 노려요.`)); c.done(); return 'stop'; }
+          c.bad(m.piece === 'wN' ? P('A knight on the edge controls fewer squares. Aim it at the centre.', '가장자리 나이트는 힘이 약해요. 중앙 쪽으로 보내세요.') : P('Move a knight this time.', '이번에는 나이트를 움직이세요.'));
+          return 'undo';
+        } });
+      } },
+    { text: P('Rule 3: castle early. Both sides have developed a knight and a bishop.', '3원칙: 일찍 캐슬링하세요. 양쪽 모두 나이트와 비숍을 꺼냈어요.'),
+      task: P('Castle now.', '지금 캐슬링하세요.'),
+      run(c) {
+        play(c, { st: after([['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6'], ['f1', 'c4'], ['f8', 'c5']]), onMove: m => {
+          if (m.castle) { c.good(P('O-O. Centre, development, a safe king: all three rules in four moves.', 'O-O. 중앙, 전개, 안전한 킹. 네 수 만에 세 원칙을 모두 지켰어요.')); c.done(); return 'stop'; }
+          c.bad(P('Click the king and move it two squares toward the h1 rook.', '킹을 클릭하고 h1 룩 쪽으로 두 칸 옮기세요.')); return 'undo';
+        } });
+      } }
+  ] };
+
+  LESSONS[21] = { t: P('Basic checkmates', '기본 체크메이트'), steps: [
+    { text: P('Three patterns win most beginner games: the <b>back-rank mate</b>, the <b>queen and king</b> working together, and the <b>ladder</b> with two rooks.',
+        '초보자 게임은 대부분 세 가지 패턴으로 끝나요. <b>백랭크 메이트</b>, <b>퀸과 킹</b>의 협력, 그리고 룩 두 개로 하는 <b>사다리 메이트</b>예요.'),
+      task: P('Find checkmate in one.', '한 수 만에 체크메이트를 찾으세요.'),
+      hint: P('Look for a check that leaves the king no square to run to.', '킹이 도망갈 칸이 하나도 없는 체크를 찾아보세요.'),
+      run(c) {
+        const puzzles = [
+          { s: 'bKg8 bPf7 bPg7 bPh7 wRd1 wKg1', n: P('Back-rank mate', '백랭크 메이트') },
+          { s: 'bKe8 wKe6 wQh1', n: P('Queen and king', '퀸과 킹') },
+          { s: 'bKa8 wRg7 wRh1 wKg1', n: P('The ladder', '사다리 메이트') }
+        ];
+        let i = 0;
+        const next = () => {
+          const pz = puzzles[i];
+          c.setTask(P(`${pz.n.en}: checkmate in one. (${i + 1} of 3)`, `${pz.n.ko}: 한 수 만에 체크메이트. (3개 중 ${i + 1}번째)`));
+          board.clearPieces(); board.clearMarks();
+          const st = pos(pz.s); board.setPos(st.pos);
+          mateTask(c, st, { onMate: async () => { i++; await c.wait(1300); if (i === 3) { c.setTask(P('Three patterns, three mates.', '세 가지 패턴, 세 번의 메이트.')); c.done(); } else next(); } });
+        };
+        next();
+      } }
+  ] };
+
+  LESSONS[22] = { t: P('Reading notation', '기보 읽기'), steps: [
+    { text: P('Every move can be written down. Write the piece’s letter, then the square it moves to: <b>K</b> king, <b>Q</b> queen, <b>R</b> rook, <b>B</b> bishop, <b>N</b> knight. Pawns get no letter. So <b>Nf3</b> means “knight to f3”, and <b>e4</b> means “pawn to e4”.',
+        '모든 수는 글로 적을 수 있어요. 기물의 알파벳을 쓰고, 도착한 칸을 써요. <b>K</b> 킹, <b>Q</b> 퀸, <b>R</b> 룩, <b>B</b> 비숍, <b>N</b> 나이트. 폰은 알파벳 없이 칸만 써요. <b>Nf3</b>는 “나이트가 f3으로”, <b>e4</b>는 “폰이 e4로”라는 뜻이에요.'),
+      run(c) { board.setPos(START); board.arrow('g1', 'f3'); board.arrow('e2', 'e4'); } },
+    { text: P('A few extra signs: <b>x</b> means a capture, <b>+</b> check, <b>#</b> checkmate, and <b>O-O</b> castling. A pawn capture starts with the file it came from, like <b>exd5</b>.',
+        '기호 몇 개를 더 알아 두세요. <b>x</b>는 잡기, <b>+</b>는 체크, <b>#</b>는 체크메이트, <b>O-O</b>는 캐슬링이에요. 폰이 잡을 때는 출발한 파일을 앞에 써서 <b>exd5</b>처럼 적어요.'),
+      task: P('How is the arrow’s move written?', '화살표의 수는 어떻게 적을까요?'),
+      run(c) {
+        const q = (list, f, t, wrong) => {
+          const st = after(list), m = R.legal(st, f).find(x => x.to === t), right = R.san(st, m);
+          const opts = shuffle([right, ...wrong]).map(v => ({ t: v, v }));
+          return { setup: () => { board.clearPieces(); board.setPos(st.pos); board.arrow(f, t); }, q: P('How is the arrow’s move written?', '화살표의 수는 어떻게 적을까요?'), opts, a: right };
+        };
+        rounds(c, [
+          q([], 'g1', 'f3', ['Ng3', 'f3']),
+          q([['e2', 'e4'], ['d7', 'd5']], 'e4', 'd5', ['Pd5', 'ed5']),
+          q([['e2', 'e4'], ['e7', 'e5'], ['d1', 'h5'], ['b8', 'c6'], ['f1', 'c4'], ['g8', 'f6']], 'h5', 'f7', ['Qf7', 'Qxf7+'])
+        ], P('Piece letter, then x if it captures, then the square. End with + or # for check or mate.', '기물 알파벳, 잡으면 x, 그리고 칸. 체크면 +, 메이트면 #를 붙여요.'));
+      } },
+    { text: P('Now read and play. You are White; Black answers by itself.', '이제 읽고 둬 볼게요. 나는 백이고, 흑은 저절로 둬요.'),
+      task: P('Play the moves.', '수를 두세요.'),
+      run(c) {
+        line(c, after([]), [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6'], ['f1', 'b5']], 'w',
+          { done: P('1. e4 e5 2. Nf3 Nc6 3. Bb5: the Ruy Lopez, one of the oldest openings in chess.', '1. e4 e5 2. Nf3 Nc6 3. Bb5: 체스에서 가장 오래된 오프닝 중 하나인 루이 로페즈예요.') });
+      } }
+  ] };
+
+  LESSONS[23] = { t: P('The Queen’s Gambit', '퀸스 갬빗'), steps: [
+    { text: P('The opening this site is named after. White pushes the d-pawn, then offers the c-pawn: <b>1. d4 d5 2. c4</b>.',
+        '이 사이트 이름의 주인공인 오프닝이에요. 백이 d 폰을 밀고, c 폰을 내줘요. <b>1. d4 d5 2. c4</b>.'),
+      task: P('Play the moves.', '수를 두세요.'),
+      run(c) { line(c, after([]), [['d2', 'd4'], ['d7', 'd5'], ['c2', 'c4']], 'w', { done: P('That is the Queen’s Gambit. A gambit is an opening that offers material.', '이게 퀸스 갬빗이에요. 갬빗은 기물을 내주는 오프닝을 말해요.') }); } },
+    { text: P('Why give a pawn away? If Black takes it with <b>2...dxc4</b>, Black gives up the centre. White plays e3, and the bishop wins the pawn back.',
+        '왜 폰을 내줄까요? 흑이 <b>2...dxc4</b>로 잡으면 흑은 중앙을 포기하게 돼요. 백은 e3를 두고, 비숍으로 폰을 되찾아요.'),
+      async run(c) {
+        const st = after([['d2', 'd4'], ['d7', 'd5'], ['c2', 'c4']]);
+        board.setPos(st.pos); await c.wait(600);
+        await demo(c, st, [['d5', 'c4'], ['e2', 'e3'], ['g8', 'f6'], ['f1', 'c4']], { pause: 600 });
+        board.mark('d4', 'hl2');
+      } },
+    { text: P('Black can also <b>decline</b> the gambit with <b>2...e6</b>, keeping the pawn on d5 strong.', '흑은 <b>2...e6</b>로 갬빗을 <b>거절</b>할 수도 있어요. d5의 폰을 단단히 지키는 거예요.'),
+      task: P('Black played 2...e6. Is the gambit accepted or declined?', '흑이 2...e6를 뒀어요. 갬빗을 받아들였을까요, 거절했을까요?'),
+      run(c) {
+        board.setPos(after([['d2', 'd4'], ['d7', 'd5'], ['c2', 'c4'], ['e7', 'e6']]).pos); board.arrow('e7', 'e6');
+        c.quiz([{ t: P('Accepted', '받아들임'), v: 'a' }, { t: P('Declined', '거절'), v: 'd' }], 'd',
+          P('Declined: the Queen’s Gambit Declined, one of the most solid answers.', '거절이에요. 퀸스 갬빗 거절(QGD)은 가장 단단한 대응 중 하나예요.'),
+          P('Black didn’t take the c4 pawn. Look again.', '흑은 c4 폰을 잡지 않았어요. 다시 보세요.'));
+      } },
+    { text: P('Your turn to play Black.', '이번에는 흑으로 둬 보세요.'),
+      task: P('Answer 2. c4: accept with dxc4, or decline with e6.', '2. c4에 답하세요. dxc4로 받아들이거나, e6로 거절하세요.'),
+      run(c) {
+        play(c, { st: after([['d2', 'd4'], ['d7', 'd5'], ['c2', 'c4']]), side: 'b', onMove: m => {
+          if (m.from === 'd5' && m.to === 'c4') { c.good(P('2...dxc4: the Queen’s Gambit Accepted. Now hold on to the centre.', '2...dxc4: 퀸스 갬빗 수락이에요. 이제 중앙을 지키며 싸워요.')); c.done(); return 'stop'; }
+          if (m.from === 'e7' && m.to === 'e6') { c.good(P('2...e6: the Queen’s Gambit Declined. Solid and classical.', '2...e6: 퀸스 갬빗 거절. 단단하고 고전적인 수예요.')); c.done(); return 'stop'; }
+          c.bad(P('Try dxc4 (take the pawn) or e6 (defend d5).', 'dxc4(폰 잡기)나 e6(d5 지키기)를 두어 보세요.')); return 'undo';
+        } });
+      } },
+    { text: P('You have finished the course. You know the board, every piece, every rule, and your first opening. Now go and play, and when you are stuck, ask Pawn.',
+        '코스를 모두 마쳤어요. 체스판, 모든 기물, 모든 규칙, 그리고 첫 오프닝까지 배웠어요. 이제 직접 두어 보고, 막히면 Pawn에게 물어보세요.'),
+      run(c) { board.setPos(START, c, { anim: true, stagger: 22 }); } }
+  ] };
+
   // ---------- page state ----------
   const S = { id: null, step: 0, token: 0, done: false, text: null, task: null, feed: null, kind: '', choices: [], choiceFn: null, keep: false, hintFn: null, ended: false };
   const STOP = { stop: true };
@@ -655,7 +1334,7 @@
   const progress = () => store.get('fgLearn', { done: [] });
   const isDone = id => progress().done.includes(id);
   const available = id => !!LESSONS[id];
-  const nextUp = () => { for (let id = 1; id <= 6; id++) if (!isDone(id)) return id; return 6; };
+  const nextUp = () => { for (let id = 1; id <= TOTAL; id++) if (!isDone(id)) return id; return TOTAL; };
 
   const UI = {
     lede: P('Chess from zero. Start with the board, meet the pieces, set them up, and finish with your first game.', '체스를 처음부터 배워요. 체스판을 보는 법부터 기물, 시작 자리, 그리고 첫 게임까지.'),
@@ -697,13 +1376,13 @@
     const n = nextUp(), all = progress().done.length;
     const go = $('goBtn');
     go.href = '#/' + n;
-    go.textContent = all === 0 ? L(UI.start) : all >= 6 ? L(UI.review) : L(UI.cont(n));
-    if (all >= 6) go.href = '#/1';
+    go.textContent = all === 0 ? L(UI.start) : all >= TOTAL ? L(UI.review) : L(UI.cont(n));
+    if (all >= TOTAL) go.href = '#/1';
     let id = 0;
     $('chapters').innerHTML = CHAPTERS.map(ch => {
       const rows = ch.lessons
         ? ch.lessons.map(l => {
-            const st = isDone(l) ? 'done' : l === n && all < 6 ? 'next' : '';
+            const st = isDone(l) ? 'done' : l === n && all < TOTAL ? 'next' : '';
             const lab = isDone(l) ? UI.done : UI.go;
             return `<li class="${st}"><a href="#/${l}"><span class="no">${String(l).padStart(2, '0')}</span><span>${L(LESSONS[l].t)}</span><span class="st">${L(lab)}</span></a></li>`;
           }).join('')
@@ -783,8 +1462,8 @@
         : P(`That is the end of Chapter ${ch.n}. Next, Chapter ${ch.n + 1}: <b>${CHAPTERS[ch.n].t.en}</b>.`, `${ch.n}장이 끝났어요. 다음은 ${ch.n + 1}장, <b>${CHAPTERS[ch.n].t.ko}</b>${jo(CHAPTERS[ch.n].t.ko, '이에요', '예요')}.`));
       a.href = '#/' + nxt; a.textContent = L(P('Next lesson →', '다음 레슨 →'));
     } else {
-      $('lEndText').innerHTML = L(P('That is the end of Chapter 2. Chapter 3, <b>How pieces move</b>, is coming soon. Meanwhile, ask Pawn anything in the corner.',
-        '2장이 끝났어요. 3장 <b>기물의 움직임</b>은 곧 열려요. 그동안 궁금한 건 구석의 Pawn에게 물어보세요.'));
+      $('lEndText').innerHTML = L(P('That is the whole course: 23 lessons, from the empty board to the Queen’s Gambit. Well done.',
+        '23강 코스를 모두 마쳤어요. 빈 체스판에서 퀸스 갬빗까지 왔어요. 수고했어요.'));
       a.href = '#'; a.textContent = L(UI.all);
     }
   }
@@ -807,11 +1486,11 @@
     renderEnd(); renderNav();
     $('lNextLesson').focus();
   }
-  function openLesson(id) {
+  function openLesson(id, at = 0) {
     S.id = id;
     $('lesson').hidden = false; document.body.classList.add('lesson-open');
     $('lPips').innerHTML = LESSONS[id].steps.map(() => '<li></li>').join('');
-    renderHead(); runStep(0);
+    renderHead(); runStep(at);
     $('lTitle').focus({ preventScroll: true });
   }
   function closeLesson() {
@@ -852,9 +1531,9 @@
 
   // routing: #/3 opens lesson 3, anything else shows the course
   function route() {
-    const m = location.hash.match(/^#\/(\d+)$/);
-    const id = m ? +m[1] : null;
-    if (id && available(id)) { if (S.id !== id) openLesson(id); }
+    const m = location.hash.match(/^#\/(\d+)(?:\/(\d+))?$/);
+    const id = m ? +m[1] : null, at = m && m[2] ? Math.max(0, Math.min(+m[2] - 1, (LESSONS[id] || { steps: [] }).steps.length - 1)) : 0;
+    if (id && available(id)) { if (S.id !== id) openLesson(id, at); else if (m[2]) runStep(at); }
     else if (S.id) closeLesson();
     else renderMap();
   }
@@ -887,7 +1566,7 @@
       return plain(st.text);
     },
     explain(l) {
-      if (!S.id) return l === 'ko' ? '이 코스는 6장, 23강이에요. 지금은 1장(체스판)과 2장(기물)을 배울 수 있어요.' : 'The course has 6 chapters and 23 lessons. Chapters 1 (the board) and 2 (the pieces) are open now.';
+      if (!S.id) return l === 'ko' ? '이 코스는 6장, 23강이에요. 체스판, 기물, 움직임, 게임의 목표, 특별한 규칙, 첫 게임 순서로 배워요.' : 'The course has 6 chapters and 23 lessons: the board, the pieces, how they move, the goal of the game, special moves, and your first game.';
       const st = LESSONS[S.id].steps[S.step];
       const o = S.text || st.text, t = S.task;
       return ((o[l] || o.en) + (t ? '\n\n' + (t[l] || t.en) : '')).replace(/<[^>]+>/g, '');

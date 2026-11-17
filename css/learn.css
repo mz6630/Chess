@@ -107,6 +107,13 @@ body.learn{background:var(--paper);color:var(--ink);overflow-x:clip}
 .board .mk.ok{fill:var(--ink);animation:flash .9s ease-out forwards}
 .board .mk.no{fill:none;stroke:var(--ink);stroke-width:.05;stroke-dasharray:.12 .08;animation:flash .9s ease-out forwards}
 @keyframes flash{from{opacity:.75}to{opacity:0}}
+.board .mk.star{fill:var(--ink);animation:pop .45s cubic-bezier(.2,.9,.3,1.4) backwards}
+@keyframes pop{from{opacity:0;transform:scale(.4)}}
+.board .mk.star{transform-box:fill-box;transform-origin:center}
+.board .mk.sel{fill:none;stroke:var(--ink);stroke-width:.06}
+.board .mk.cap{fill:var(--ink);opacity:.6}
+.board .mk.mv{fill:var(--ink);opacity:.32}
+.board .mk.arrow{stroke:var(--ink);stroke-width:.1;stroke-linecap:round;opacity:.62;fill:none}
 .board .mk.name{font:500 .3px Jost,sans-serif;letter-spacing:.02px;fill:var(--ink);text-anchor:middle;dominant-baseline:central}
 .board .mk.name.inv{fill:var(--paper)}
 .board .pc{pointer-events:none;transition:transform .6s cubic-bezier(.6,0,.25,1),opacity .45s}
