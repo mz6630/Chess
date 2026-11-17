@@ -29,11 +29,14 @@ No build step and no libraries: open `index.html` in a browser, or serve the fol
 
 ## Connecting Pawn to a real AI model
 
-Pawn answers on its own out of the box. To route questions to a language model, deploy a small serverless function that keeps your API key secret, and set its address before `js/tutor.js` loads:
+Pawn answers on its own out of the box. `functions/` holds a Firebase function that forwards questions to Claude with the API key kept secret on the server.
 
-```html
-<script>window.FG_TUTOR_ENDPOINT = 'https://your-function.example.com/tutor';</script>
-```
+1. Firebase project on the Blaze plan (functions need it to call outside services; set a budget alert).
+2. An Anthropic API key from console.anthropic.com.
+3. `npm install -g firebase-tools`, `firebase login`, then in this folder `firebase use --add`.
+4. `cd functions && npm install && cd ..`
+5. `firebase functions:secrets:set ANTHROPIC_API_KEY` and paste the key.
+6. `firebase deploy --only functions` and copy the printed URL of `tutor`.
+7. Put that URL in `js/config.js`, commit and push.
 
-Pawn sends `POST {question, lang, context}`, where `context` holds the section the visitor is on, every piece's home square, current square and whether it has fallen, and Pawn's own analysis. Reply with `{"reply": "..."}`. If the request fails, Pawn falls back to its own answer. Never put an API key in this repository: it is public.
-
+Pawn sends `POST {question, lang, context}`, where `context` holds the section the visitor is on, every piece's home square, current square and whether it has fallen, and Pawn's own analysis. The function replies `{"reply": "..."}`. If the request fails, Pawn falls back to its own answer. Only `https://mz6630.github.io` may call the function. Never put the API key in this repository: it is public.
