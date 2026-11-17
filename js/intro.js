@@ -69,7 +69,7 @@
   }
 
   let R = null;
-  try { R = createRenderer(canvas, GEO); } catch (e) { console.error(e); R = null; }
+  try { R = createRenderer(canvas, GEO, { seg: 72, maxDpr: 1.5 }); } catch (e) { console.error(e); R = null; }
 
   function draw(t) {
     const { W, H, asp } = R.size(), st = state(t);

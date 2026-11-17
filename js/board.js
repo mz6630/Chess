@@ -7,7 +7,7 @@
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let R = null;
-  try { R = createRenderer(canvas, GEO, { seg: 64 }); } catch (e) { console.error(e); }
+  try { R = createRenderer(canvas, GEO, { seg: 40, maxDpr: 1.25, shadowSize: 1024 }); } catch (e) { console.error(e); }
   if (!R) { section.hidden = true; }
   else {
     const S = 0.66, TOP = 0.32, HALF = 4.45;
@@ -34,7 +34,7 @@
       const [x, z] = sq(p.f, p.r);
       p.end = [x, TOP, z];
       const th = Math.atan2(z, x) + (rnd() - .5) * 1.4, rad = 3.6 + rnd() * 2.6;
-      p.start = [Math.cos(th) * rad, 3.2 + rnd() * 3.2, Math.sin(th) * rad];
+      p.start = [Math.cos(th) * rad, 4.2 + rnd() * 3.6, Math.sin(th) * rad];
       p.q0 = Q.axis([rnd() - .5, rnd() - .5, rnd() - .5], Math.PI * (1 + rnd()));
       p.spin = (rnd() < .5 ? -1 : 1) * Math.PI * 2 * (1 + Math.floor(rnd() * 2));
       // knights look across the board at each other
@@ -84,7 +84,7 @@
       const la = (-38 + 30 * prog) * Math.PI / 180, le = 46 * Math.PI / 180;
       const L = [Math.cos(le) * Math.sin(la), Math.sin(le), Math.cos(le) * Math.cos(la)];
       const bg = .93 * (.33 + L[1] * 2.9);
-      R.render({ t: prog * 10, cam: camera(prog, asp), L, Lc: 2.9, amb: .33, exp: 1.32, shadow: { c: [0, 0, 0], half: 11 }, shadowSoft: 2.2,
+      R.render({ t: prog * 10, cam: camera(prog, asp), L, Lc: 2.9, amb: .33, exp: 1.32, shadow: { c: [0, 0, 0], half: 10 }, shadowSoft: 1.6, taps: 6, cheap: true, flat: true,
         clip: false, ground: TOP, groundCol: [bg * .45, bg * .45, bg * .45], reflect: false, board: true, pieces, ao });
     }
 
@@ -92,12 +92,13 @@
     let target = reduced ? 1 : 0, cur = target, raf = 0, visible = false;
     const measure = () => {
       if (reduced) return 1;
-      const r = section.getBoundingClientRect(), span = r.height - innerHeight;
-      return span > 0 ? clamp(-r.top / span) : 0;
+      // starts while the section is still coming up, so the first pieces appear in the upper half of the screen
+      const r = section.getBoundingClientRect(), lead = innerHeight * 0.55, span = r.height - innerHeight + lead;
+      return span > 0 ? clamp((lead - r.top) / span) : 0;
     };
     const tick = () => {
       raf = 0;
-      cur += (target - cur) * 0.14;
+      cur += (target - cur) * 0.22;
       if (Math.abs(target - cur) < 1e-4) cur = target;
       try { draw(cur); } catch (e) { console.error(e); return; }
       if (cur !== target) raf = requestAnimationFrame(tick);

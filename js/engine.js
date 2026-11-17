@@ -184,13 +184,14 @@ window.FG = (() => {
   const COMMON = `#version 300 es
   precision highp float; precision highp sampler2DShadow;
   uniform vec3 uCam, uL, uLc, uBg; uniform float uExp, uTime, uAmb, uGround; uniform vec2 uRes;
-  uniform sampler2DShadow uSh; uniform mat4 uLVP; uniform float uShR;
+  uniform sampler2DShadow uSh; uniform mat4 uLVP; uniform float uShR, uFlat, uCheap; uniform int uTaps;
   uniform vec4 uP[32]; uniform vec2 uPh[32]; uniform int uN;
   const float PI = 3.14159265;
   vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.,1.); }
   float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
   vec3 finish(vec3 c){
     c = aces(c*uExp); c = pow(c, vec3(1./2.2));
+    if(uFlat > .5) return c;
     vec2 q = gl_FragCoord.xy/uRes; float vig = smoothstep(1.25, .35, length(q-.5)*1.25);
     c *= mix(.93, 1., vig);
     c += (hash(gl_FragCoord.xy + fract(uTime)*91.7) - .5)*.018;
@@ -220,8 +221,8 @@ window.FG = (() => {
     vec2 k[12] = vec2[](vec2(-.94,-.4),vec2(.95,-.77),vec2(-.09,-.93),vec2(.34,.29),vec2(-.92,.46),vec2(-.82,.15),
       vec2(-.38,.28),vec2(-.6,-.8),vec2(.79,.19),vec2(.54,-.43),vec2(.18,.92),vec2(-.24,.7));
     float rot = hash(gl_FragCoord.xy)*6.283; mat2 R = mat2(cos(rot),sin(rot),-sin(rot),cos(rot));
-    for(int i=0;i<12;i++) s += texture(uSh, vec3(q.xy + R*k[i]*uShR, q.z - .0012));
-    return s/12.;
+    for(int i=0;i<12;i++){ if(i >= uTaps) break; s += texture(uSh, vec3(q.xy + R*k[i]*uShR, q.z - .0012)); }
+    return s/float(uTaps);
   }
   // contact occlusion under each piece standing on (or hovering over) the ground plane
   float aoAt(vec2 xz){
@@ -239,7 +240,8 @@ window.FG = (() => {
     vec3 R = reflect(-Vd, N);
     float F = .045 + .955*pow(1.-NV, 5.);
     vec3 e = env(R, rough*.25) * occ;
-    if(R.y < 0.){ vec3 fp = P + R * ((uGround - P.y) / min(R.y, -1e-3)); e = mix(e, groundCol * aoAt(fp.xz) * mix(.55,1.,shadowAt(fp)), smoothstep(0., -.08, R.y)); }
+    if(R.y < 0. && uCheap > .5){ e = mix(e, groundCol, smoothstep(0., -.08, R.y)); }
+    else if(R.y < 0.){ vec3 fp = P + R * ((uGround - P.y) / min(R.y, -1e-3)); e = mix(e, groundCol * aoAt(fp.xz) * mix(.55,1.,shadowAt(fp)), smoothstep(0., -.08, R.y)); }
     vec3 L = normalize(uL), H = normalize(L + Vd);
     float NL = max(dot(N,L), 0.), NH = max(dot(N,H), 0.);
     float a = rough*rough, a2 = a*a, dd = NH*NH*(a2-1.)+1., D = a2/(PI*dd*dd);
@@ -269,7 +271,7 @@ window.FG = (() => {
     vec3 Vr = normalize((uMirror > .5 ? vec3(uCam.x, -uCam.y, uCam.z) : uCam) - P);
     vec3 albedo = mix(vec3(.012), vec3(.80,.78,.74), uWhite);
     float rough = mix(.085, .17, uWhite);
-    float occ = mix(.35, 1., smoothstep(uGround, uGround + .5, P.y)) * mix(1., aoAt(P.xz), .25);
+    float occ = mix(.35, 1., smoothstep(uGround, uGround + .5, P.y)) * (uCheap > .5 ? 1. : mix(1., aoAt(P.xz), .25));
     vec3 c = lacquer(P, Nr, Vr, albedo, rough, occ, uGroundCol);
     if(uMirror > .5){ o = vec4(finish(c), uFade * exp(vW.y*3.2) * .42); return; }
     o = vec4(finish(c), 1.);
@@ -280,7 +282,7 @@ window.FG = (() => {
   float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
   float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
     return mix(mix(h21(i), h21(i+vec2(1,0)), f.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), f.x), f.y); }
-  float fbm(vec2 p){ float s = 0., a = .5; for(int i=0;i<5;i++){ s += a*vn(p); p *= 2.03; a *= .5; } return s; }
+  float fbm(vec2 p){ float s = 0., a = .5; for(int i=0;i<3;i++){ s += a*vn(p); p *= 2.03; a *= .5; } return s; }
   void main(){
     vec3 N = normalize(vN), Vd = normalize(uCam - vW);
     vec3 albedo = vec3(.016); float rough = .1;
@@ -311,13 +313,19 @@ window.FG = (() => {
     float ao = uBox.x > 0. ? 1. : aoAt(vW.xz);
     if(uBox.x > 0.){ float d = length(max(abs(vW.xz) - uBox.x, 0.)); ao *= 1. - .5*exp(-d*3.2) - .2*exp(-d*.9); }
     vec3 L = normalize(uL);
+    if(uFlat > .5){
+      // pure white page: only the shadow and contact darkening are drawn, so the scene melts into the page
+      float lit = (uAmb*ao + max(L.y,0.)*uLc.x*sh*mix(.75,1.,ao)) / (uAmb + max(L.y,0.)*uLc.x);
+      float v = mix(1., mix(.52, 1., lit), 1. - smoothstep(7., 16., length(vW.xz)));
+      o = vec4(vec3(v), 1.); return;
+    }
     vec3 c = vec3(.93) * (uAmb*ao + max(L.y,0.)*uLc*sh*mix(.75,1.,ao));
     c = mix(c, uBg, smoothstep(7., 24., length(vW.xz)));
     o = vec4(finish(c), 1.);
   }`;
   const VS_BG = `#version 300 es
   layout(location=0) in vec3 aP; void main(){ gl_Position = vec4(aP.xy, .9999, 1.); }`;
-  const FS_BG = COMMON + `out vec4 o; void main(){ o = vec4(finish(uBg), 1.); }`;
+  const FS_BG = COMMON + `out vec4 o; void main(){ o = uFlat > .5 ? vec4(1.) : vec4(finish(uBg), 1.); }`;
   const VS_SH = `#version 300 es
   layout(location=0) in vec3 aP; uniform mat4 uVP, uM; out float vY;
   void main(){ vec4 w = uM*vec4(aP,1.); vY = w.y; gl_Position = uVP*w; }`;
@@ -367,7 +375,7 @@ window.FG = (() => {
 
     let W = 0, H = 0;
     function size() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2), r = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, opt.maxDpr || 2), r = canvas.getBoundingClientRect();
       W = Math.max(1, r.width); H = Math.max(1, r.height);
       const cw = Math.round(W * dpr), ch = Math.round(H * dpr);
       if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
@@ -411,6 +419,7 @@ window.FG = (() => {
         if (u.uLVP) gl.uniformMatrix4fv(u.uLVP, false, LVP); if (u.uShR) gl.uniform1f(u.uShR, (s.shadowSoft || 2.4) / SH);
         if (u.uP) gl.uniform4fv(u.uP, P); if (u.uPh) gl.uniform2fv(u.uPh, Ph); if (u.uN) gl.uniform1i(u.uN, n);
         if (u.uGroundCol) gl.uniform3fv(u.uGroundCol, gc);
+        if (u.uFlat) gl.uniform1f(u.uFlat, s.flat ? 1 : 0); if (u.uCheap) gl.uniform1f(u.uCheap, s.cheap ? 1 : 0); if (u.uTaps) gl.uniform1i(u.uTaps, s.taps || 12);
         if (u.uSh) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, shTex); gl.uniform1i(u.uSh, 0); }
       };
       const drawPieces = mirror => {

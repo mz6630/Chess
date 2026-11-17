@@ -29,7 +29,7 @@ a{color:inherit;text-decoration:none}
 .hero{position:relative;height:100vh;height:100svh;min-height:600px;overflow:hidden}
 
 /* ---------- scroll scene: the set lands on the board ---------- */
-.stage3d{position:relative;height:420vh;background:#FFFFFF}
+.stage3d{position:relative;height:250vh;background:#FFFFFF}
 .stage3d.still{height:100vh;height:100svh}
 .sticky{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
 #boardgl{display:block;width:100%;height:100%}
