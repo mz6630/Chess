@@ -9,8 +9,8 @@
           king centred; under 900px the king moves right and the words stack on the left */
 :root{color-scheme:dark;--ink:#0B0B0B;--paper:#FFFFFF;--md:#8C8C88;--ml:#5A5A56;--hz:58%;--kh:min(38vh,34vw,400px);--kw:calc(var(--kh)*78.6/254);--g:6vw}
 *{box-sizing:border-box;min-width:0}
-html,body{height:100%;margin:0}
-body{background:var(--ink);color:var(--paper);font:300 16px/1.6 Jost,'Helvetica Neue',Arial,sans-serif;overflow:hidden}
+html,body{margin:0}
+body{background:var(--ink);color:var(--paper);font:300 16px/1.6 Jost,'Helvetica Neue',Arial,sans-serif;overflow-x:clip}
 button{font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;background:none;border:0;padding:0;cursor:pointer}
 a{color:inherit;text-decoration:none}
 :focus-visible{outline:1px solid currentColor;outline-offset:4px}
@@ -26,7 +26,13 @@ a{color:inherit;text-decoration:none}
 .intro-on{overflow:hidden!important}
 
 /* ---------- landing ---------- */
-.hero{position:relative;height:100%;min-height:600px;overflow:hidden}
+.hero{position:relative;height:100vh;height:100svh;min-height:600px;overflow:hidden}
+
+/* ---------- scroll scene: the set lands on the board ---------- */
+.stage3d{position:relative;height:420vh;background:#FFFFFF}
+.stage3d.still{height:100vh;height:100svh}
+.sticky{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
+#boardgl{display:block;width:100%;height:100%}
 .top{position:absolute;left:0;right:0;top:0;height:var(--hz);background:var(--ink);color:var(--paper)}
 .bot{position:absolute;left:0;right:0;top:var(--hz);bottom:0;background:var(--paper);color:var(--ink);transform-origin:50% 100%}
 nav{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:26px var(--g);z-index:3}

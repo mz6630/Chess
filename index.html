@@ -23,7 +23,7 @@
 
 <main class="hero" id="hero">
 <section class="top" id="top">
-<nav id="nav" class="fd"><a class="mark" id="logo" href="#top" aria-label="First Gambit, play the intro again">First Gambit</a><div class="links cap"><a href="#learn">Learn</a><a href="#play">Play</a><a href="#coach">Coach</a></div></nav>
+<nav id="nav" class="fd"><a class="mark" id="logo" href="#top" aria-label="First Gambit, play the intro again">First Gambit</a><div class="links cap"><a href="#top" id="toMain">Main</a><a href="#play">Play</a><a href="#learn">Learn</a></div></nav>
 <p class="lede fd" id="lede">Learn the game.<br>Play the game.<br>Ask why.</p>
 <h1 class="first" id="first"><span>First</span><span class="sr"> Gambit</span></h1>
 </section>
@@ -42,7 +42,13 @@
 </section>
 </main>
 
+<section class="stage3d" id="setup" aria-label="Black and white pieces tumble through the air and land on a chessboard in the starting position, then play the Queen’s Gambit">
+<div class="sticky"><canvas id="boardgl"></canvas></div>
+</section>
+
 <script src="js/pieces.js"></script>
+<script src="js/engine.js"></script>
 <script src="js/intro.js"></script>
+<script src="js/board.js"></script>
 </body>
 </html>
