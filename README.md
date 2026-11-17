@@ -27,16 +27,13 @@ Click anywhere or press any key to skip the intro. Click the *First Gambit* logo
 
 No build step and no libraries: open `index.html` in a browser, or serve the folder with GitHub Pages. Fonts (Bodoni Moda, Jost) load from Google Fonts. Browsers without WebGL2, or with reduced motion turned on, skip straight to the landing.
 
-## Connecting Pawn to a real AI model
+## Connecting Pawn to a real AI model (free)
 
-Pawn answers on its own out of the box. `functions/` holds a Firebase function that forwards questions to Claude with the API key kept secret on the server.
+Pawn answers on its own out of the box. `worker/worker.js` is a Cloudflare Worker that forwards questions to Google Gemini, keeping the API key secret. Both run on free plans with no card: Cloudflare Workers Free allows 100,000 requests a day, and Gemini's free tier has its own per-minute and per-day limits (free-tier prompts may be used by Google to improve its products).
 
-1. Firebase project on the Blaze plan (functions need it to call outside services; set a budget alert).
-2. An Anthropic API key from console.anthropic.com.
-3. `npm install -g firebase-tools`, `firebase login`, then in this folder `firebase use --add`.
-4. `cd functions && npm install && cd ..`
-5. `firebase functions:secrets:set ANTHROPIC_API_KEY` and paste the key.
-6. `firebase deploy --only functions` and copy the printed URL of `tutor`.
-7. Put that URL in `js/config.js`, commit and push.
+1. Get a Gemini API key at aistudio.google.com (Get API key).
+2. At dash.cloudflare.com: Workers & Pages, Create, start from "Hello World", deploy, then Edit code, paste `worker/worker.js` over everything and Deploy.
+3. In the Worker: Settings, Variables and Secrets, add a Secret named `GEMINI_API_KEY` with the key.
+4. Copy the Worker's address (`https://...workers.dev`) into `js/config.js`, commit and push.
 
-Pawn sends `POST {question, lang, context}`, where `context` holds the section the visitor is on, every piece's home square, current square and whether it has fallen, and Pawn's own analysis. The function replies `{"reply": "..."}`. If the request fails, Pawn falls back to its own answer. Only `https://mz6630.github.io` may call the function. Never put the API key in this repository: it is public.
+Pawn sends `POST {question, lang, context}`, where `context` holds the section the visitor is on, every piece's home square, current square and whether it has fallen, and Pawn's own analysis. The Worker replies `{"reply": "..."}`. If the request fails, Pawn falls back to its own answer. Only `https://mz6630.github.io` may call the Worker. Never put the API key in this repository: it is public.
