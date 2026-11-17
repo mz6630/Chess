@@ -7,7 +7,7 @@
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let R = null;
-  try { R = createRenderer(canvas, GEO, { seg: 40, maxDpr: 1.25, shadowSize: 1024 }); } catch (e) { console.error(e); }
+  try { R = createRenderer(canvas, GEO, { seg: 40, maxDpr: 1.25, shadowSize: 1024, alpha: true }); } catch (e) { console.error(e); }
   if (!R) { section.hidden = true; }
   else {
     const S = 0.66, TOP = 0.32, HALF = 4.45;
@@ -75,16 +75,16 @@
 
     // ---------- hands on the board: drag to move, knock pieces over ----------
     const LIVE = 0.995, BOUND = 3.9, FALL_MS = 520;
-    let live = false, lastCam = null, lastAsp = 1;
+    let live = false, lastCam = null, lastAsp = 1, lastOff = 0;
     const radius = p => p.r0 * S, length = p => GEO[p.type].h * S;
     // the tilt at which a piece lying on its side rests with its tip on the board
     const restAngle = p => { const rb = radius(p), L = length(p); let th = Math.PI / 2; for (let i = 0; i < 30; i++) { const f = rb * Math.sin(th) + L * Math.cos(th) - .03; if (f <= 0) break; th += .01; } return th; };
 
     function goLive() {
-      live = true;
+      live = true; canvas.style.pointerEvents = 'auto';
       for (const p of order) { const ps = pose(p, 1); p.ix = ps.pos[0]; p.iz = ps.pos[2]; p.th = 0; p.dir = [1, 0]; p.lift = 0; p.anims = []; p.knockAt = 0; }
     }
-    function leaveLive() { live = false; for (const p of order) delete p.ix; drag = null; canvas.style.cursor = ''; }
+    function leaveLive() { live = false; canvas.style.pointerEvents = ''; for (const p of order) delete p.ix; drag = null; canvas.style.cursor = ''; }
 
     const anim = (p, key, to, dur, ease) => { p.anims = p.anims.filter(a => a.key !== key); p.anims.push({ key, from: p[key], to, t0: performance.now(), dur, ease }); };
     const fallEase = u => u < .78 ? (u / .78) ** 2 : 1 - .07 * Math.sin((u - .78) / .22 * Math.PI);
@@ -151,13 +151,15 @@
       const L = [Math.cos(le) * Math.sin(la), Math.sin(le), Math.cos(le) * Math.cos(la)];
       const bg = .93 * (.33 + L[1] * 2.9);
       lastCam = camera(prog, asp); lastAsp = asp;
-      R.render({ t: prog * 10, cam: lastCam, L, Lc: 2.9, amb: .33, exp: 1.32, shadow: { c: [0, 0, 0], half: 10 }, shadowSoft: 1.6, taps: 6, cheap: true, flat: true,
+      // the canvas covers the whole screen; the picture follows where the section's frame is, so pieces can fly above it
+      const fr = section.getBoundingClientRect(); lastOff = -2 * Math.max(0, fr.top) / innerHeight;
+      R.render({ offsetY: lastOff, t: prog * 10, cam: lastCam, L, Lc: 2.9, amb: .33, exp: 1.32, shadow: { c: [0, 0, 0], half: 10 }, shadowSoft: 1.6, taps: 6, cheap: true, flat: true,
         clip: false, ground: TOP, groundCol: [bg * .45, bg * .45, bg * .45], reflect: false, board: true, pieces, ao });
     }
 
     // ---------- pointer ----------
     function ray(e) {
-      const r = canvas.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * 2 - 1, y = 1 - ((e.clientY - r.top) / r.height) * 2;
+      const r = canvas.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * 2 - 1, y = 1 - ((e.clientY - r.top) / r.height) * 2 - lastOff;
       const c = lastCam, f = V.norm(V.sub(c.tgt, c.eye)), rt = V.norm(V.cross(f, [0, 1, 0])), up = V.cross(rt, f), tn = Math.tan(c.fov / 2);
       return { o: c.eye, d: V.norm(V.add(f, V.add(V.mul(rt, x * tn * lastAsp), V.mul(up, y * tn)))) };
     }
@@ -250,7 +252,10 @@
       if (cur !== target) raf = requestAnimationFrame(tick); else if (live) wake();
     };
     const kick = () => { target = measure(); if (!raf && visible) raf = requestAnimationFrame(tick); };
-    new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) { cur = target = measure(); kick(); draw(cur); } }, { rootMargin: '200px 0px' }).observe(section);
+    new IntersectionObserver(es => {
+      visible = es[0].isIntersecting; canvas.style.display = visible ? 'block' : 'none';
+      if (visible) { cur = target = measure(); kick(); draw(cur); }
+    }, { rootMargin: '0px 0px 0px 0px' }).observe(section);
     addEventListener('scroll', kick, { passive: true });
     addEventListener('resize', () => { if (visible) draw(cur); });
     if (reduced) section.classList.add('still');

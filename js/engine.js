@@ -317,7 +317,8 @@ window.FG = (() => {
       // pure white page: only the shadow and contact darkening are drawn, so the scene melts into the page
       float lit = (uAmb*ao + max(L.y,0.)*uLc.x*sh*mix(.75,1.,ao)) / (uAmb + max(L.y,0.)*uLc.x);
       float v = mix(1., mix(.52, 1., lit), 1. - smoothstep(7., 16., length(vW.xz)));
-      o = vec4(vec3(v), 1.); return;
+      // transparent canvas: the shadow is drawn as darkness over whatever page lies beneath
+      o = vec4(0., 0., 0., 1. - v); return;
     }
     vec3 c = vec3(.93) * (uAmb*ao + max(L.y,0.)*uLc*sh*mix(.75,1.,ao));
     c = mix(c, uBg, smoothstep(7., 24., length(vW.xz)));
@@ -337,7 +338,7 @@ window.FG = (() => {
   const TYPES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
 
   function createRenderer(canvas, GEO, opt = {}) {
-    const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, premultipliedAlpha: false, powerPreference: 'high-performance' });
+    const gl = canvas.getContext('webgl2', { antialias: true, alpha: !!opt.alpha, premultipliedAlpha: true, powerPreference: 'high-performance' });
     if (!gl) return null;
     const SH = opt.shadowSize || 2048;
     const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
@@ -388,7 +389,9 @@ window.FG = (() => {
     //          pieces:[{type, m, white, vis}], ao:[{x,z,r,lift,vis,spread}], board:bool }
     function render(s) {
       const { asp } = size();
-      const VP = M.mul(M.persp(s.cam.fov, asp, .1, 200), M.look(s.cam.eye, s.cam.tgt, [0, 1, 0]));
+      let VP = M.mul(M.persp(s.cam.fov, asp, .1, 200), M.look(s.cam.eye, s.cam.tgt, [0, 1, 0]));
+      // shift the whole picture vertically in clip space (lets a full-screen canvas follow a scrolling frame)
+      if (s.offsetY) VP = M.mul(new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, s.offsetY, 0, 1]), VP);
       const L = s.L, c = s.shadow.c, hf = s.shadow.half;
       const LVP = M.mul(M.ortho(-hf, hf, -hf, hf, 1, 60), M.look(V.add(c, V.mul(L, 26)), c, [0, 1, 0]));
       const ground = s.ground || 0, clip = s.clip ? 1 : 0;
@@ -405,7 +408,8 @@ window.FG = (() => {
 
       // main pass
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.clearColor(1, 1, 1, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      if (opt.alpha) gl.clearColor(0, 0, 0, 0); else gl.clearColor(1, 1, 1, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       const bg = .93 * (s.amb + Math.max(L[1], 0) * s.Lc);
       const P = new Float32Array(128), Ph = new Float32Array(64), n = Math.min(32, s.ao.length);
       s.ao.slice(0, n).forEach((a, i) => { P.set([a.x, a.z, a.r, a.spread || 1], i * 4); Ph.set([a.lift, a.vis], i * 2); });
@@ -433,7 +437,7 @@ window.FG = (() => {
         }
       };
       gl.disable(gl.DEPTH_TEST);
-      common(progs.bg); gl.bindVertexArray(bgVao.v); gl.drawElements(gl.TRIANGLES, bgVao.n, gl.UNSIGNED_INT, 0);
+      if (!opt.alpha) { common(progs.bg); gl.bindVertexArray(bgVao.v); gl.drawElements(gl.TRIANGLES, bgVao.n, gl.UNSIGNED_INT, 0); }
       common(progs.floor); gl.uniform3f(progs.floor.u.uBox, s.board && boardSpec ? boardSpec.half : 0, 0, 0);
       gl.bindVertexArray(floorVao.v); gl.drawElements(gl.TRIANGLES, floorVao.n, gl.UNSIGNED_INT, 0);
       gl.enable(gl.DEPTH_TEST);
