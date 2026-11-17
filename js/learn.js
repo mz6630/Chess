@@ -11,6 +11,8 @@
   const nameOf = (f, r) => FILES[f] + (r + 1);
   const isLight = s => { const [f, r] = fr(s); return (f + r) % 2 === 1; };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sfx = (n, o) => window.FG_SOUND && window.FG_SOUND.play(n, o);
+  const panSq = n => (FILES.indexOf(n[0]) - 3.5) / 6;
   const P = (en, ko) => ({ en, ko });
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -115,9 +117,11 @@
           sq[n].style.animationDelay = (f + (7 - r)) * 38 + 'ms';
           sq[n].classList.remove('hidden'); sq[n].classList.add('in');
         }
+        sfx('sweep');
         await ctx.wait(14 * 38 + 500);
       },
       rotate(deg, anim = true) {
+        if (anim && deg) sfx('whoosh');
         rot.style.transition = anim && !reduce ? '' : 'none';
         rot.style.transform = deg ? `rotate(${deg}deg)` : '';
         if (!anim) { rot.getBoundingClientRect(); rot.style.transition = ''; }
@@ -135,6 +139,7 @@
         const g = el('g', { class: 'pc' }, pcG);
         el('use', { href: '#fp-' + t, x: (1 - W) / 2, y: .93 - H, width: W, height: H, class: code[0] === 'w' ? 'pw' : 'pb' }, g);
         const at = `translate(${f}px,${7 - r}px)`;
+        if (o.anim) sfx('place', { pan: panSq(n), gain: .2, delay: (o.delay || 0) / 1000 + .3 });
         if (o.anim && !reduce) {
           g.style.transition = 'none'; g.style.opacity = 0; g.style.transform = `translate(${f}px,${7 - r - .35}px)`;
           g.getBoundingClientRect();
@@ -154,6 +159,7 @@
       },
       async move(from, to, ctx) {
         const p = pieces.get(from); if (!p) return;
+        sfx(pieces.has(to) ? 'capture' : 'move', { pan: panSq(to) });
         api.remove(to);
         const [f, r] = fr(to);
         p.el.style.transform = `translate(${f}px,${7 - r}px)`;
@@ -259,7 +265,7 @@
       },
       hide() { svg.setAttribute('hidden', ''); onPick = null; }
     };
-    const fire = e => { const g = e.target.closest('.li'); if (g && onPick) onPick(g.dataset.t, g); };
+    const fire = e => { const g = e.target.closest('.li'); if (g && onPick) { sfx('select'); onPick(g.dataset.t, g); } };
     svg.addEventListener('click', fire);
     svg.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(e); } });
     return api;
@@ -273,7 +279,7 @@
       const t = TYPE[code[1]];
       return `<svg viewBox="0 0 ${FLAT[t].w} ${FLAT[t].h}" aria-hidden="true"><use href="#fp-${t}" class="${code[0] === 'w' ? 'pw' : 'pb'}"/></svg>`;
     };
-    const select = b => { [...box.children].forEach(x => x.classList.toggle('sel', x === b)); sel = b; };
+    const select = b => { if (b && b !== sel) sfx('select'); [...box.children].forEach(x => x.classList.toggle('sel', x === b)); sel = b; };
     const tryPlace = (b, n) => {
       if (!b || !onPlace) return;
       if (onPlace(b.dataset.code, n)) { b.classList.add('used'); b.disabled = true; select(null); }
@@ -328,6 +334,7 @@
     const clearSel = () => { ['sel', 'mv', 'cap'].forEach(k => board.clearMarks(k)); sel = null; moves = []; };
     const select = n => {
       clearSel(); sel = n; moves = R.legal(g, n);
+      sfx('select', { pan: panSq(n) });
       board.mark(n, 'sel');
       moves.forEach(m => board.mark(m.to, m.capture ? 'cap' : 'mv'));
       if (o.onSelect) o.onSelect(n, moves);
@@ -341,16 +348,17 @@
     });
     async function animate(m) {
       board.move(m.from, m.to);
-      if (m.ep) board.remove(m.ep);
-      if (m.rook) board.move(m.rook[0], m.rook[1]);
+      if (m.ep) { board.remove(m.ep); sfx('capture', { pan: panSq(m.to) }); }
+      if (m.rook) { board.move(m.rook[0], m.rook[1]); sfx('place', { pan: panSq(m.rook[1]), delay: .2 }); }
       await c.wait(650);
-      if (m.promo) { board.place(m.to, m.piece[0] + (m.promoTo || 'Q'), { anim: true }); await c.wait(500); }
+      if (m.promo) { board.place(m.to, m.piece[0] + (m.promoTo || 'Q'), { anim: true }); sfx('promote'); await c.wait(500); }
     }
     async function go(m) {
       busy = true; clearSel();
       if (m.promo) m = Object.assign({}, m, { promoTo: o.promo === 'ask' ? await askPromo() : 'Q' });
       const before = g, after = R.apply(g, m, { keepTurn: o.keepTurn });
       await animate(m);
+      if (!o.keepTurn && R.inCheck(after.pos, after.turn) && R.status(after) !== 'mate') sfx('check');
       const res = o.onMove ? await o.onMove(m, after, before) : 'ok';
       if (res === 'undo') { await c.wait(900); g = before; board.clearPieces(); board.clearMarks('arrow'); board.setPos(g.pos); busy = false; return; }
       g = after;
@@ -417,7 +425,7 @@
     upd();
     play(c, { st: R.state(Object.assign({ [from]: piece }, extra)), keepTurn: true, placed: true, onMove: m => {
       n++;
-      if (left.has(m.to)) { left.delete(m.to); board.unmark(m.to, 'star'); board.mark(m.to, 'ok'); }
+      if (left.has(m.to)) { left.delete(m.to); board.unmark(m.to, 'star'); board.mark(m.to, 'ok'); sfx('star', { pan: panSq(m.to) }); }
       upd();
       if (!left.size) {
         c.good(n <= par ? P(`Every star in ${n} moves: the fewest possible.`, `${n}수 만에 별을 모두 잡았어요. 가장 짧은 방법이에요.`)
@@ -1398,7 +1406,7 @@
   const ctxFor = my => ({
     wait: ms => new Promise(res => setTimeout(res, reduce ? Math.min(ms, 80) : ms)).then(() => { if (my !== S.token) throw STOP; }),
     done() { if (my !== S.token) return; S.done = true; renderNav(); },
-    good(o) { feed(my, o, 'good'); }, bad(o) { feed(my, o, 'bad'); }, say(o) { feed(my, o, ''); },
+    good(o) { if (my === S.token) sfx('good'); feed(my, o, 'good'); }, bad(o) { if (my === S.token) sfx('bad'); feed(my, o, 'bad'); }, say(o) { feed(my, o, ''); },
     setTask(o) { if (my !== S.token) return; S.task = o; renderText(); },
     choices(list, fn, keep) { if (my !== S.token) return; S.choices = list; S.choiceFn = fn; S.keep = !!keep; renderChoices(); },
     clearChoices() { if (my !== S.token) return; S.choices = []; renderChoices(); },
@@ -1482,7 +1490,7 @@
   function endLesson() {
     S.token++; S.ended = true;
     const p = progress(); if (!p.done.includes(S.id)) p.done.push(S.id); store.set('fgLearn', p);
-    $('lStep').hidden = true; $('lEnd').hidden = false; S.choices = []; renderChoices();
+    $('lStep').hidden = true; $('lEnd').hidden = false; S.choices = []; renderChoices(); sfx('complete');
     renderEnd(); renderNav();
     $('lNextLesson').focus();
   }

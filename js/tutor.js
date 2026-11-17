@@ -17,7 +17,7 @@
   <p class="t-hint" id="tHint" hidden>Stuck? Ask me anything.</p>
   <section class="t-panel" id="tPanel" role="dialog" aria-label="Pawn, your chess tutor" hidden>
     <header class="t-head">${svgPawn('t-mini')}<div><p class="t-name">Pawn</p><p class="t-role">Your chess tutor</p></div>
-      <button class="t-x" id="tClose" type="button" aria-label="Close the tutor">×</button></header>
+      <button class="t-x" id="tClose" type="button" data-quiet aria-label="Close the tutor">×</button></header>
     <div class="t-log" id="tLog" aria-live="polite"></div>
     <div class="t-chips" id="tChips"></div>
     <form class="t-form" id="tForm" autocomplete="off">
@@ -26,7 +26,7 @@
       <button class="t-send" type="submit" aria-label="Send">↑</button>
     </form>
   </section>
-  <button class="t-btn" id="tBtn" type="button" aria-label="Open Pawn, your chess tutor" aria-expanded="false">${svgPawn('t-pawn')}</button>
+  <button class="t-btn" id="tBtn" type="button" data-quiet aria-label="Open Pawn, your chess tutor" aria-expanded="false">${svgPawn('t-pawn')}</button>
 </div>`);
   const panel = $('tPanel'), log = $('tLog'), input = $('tIn'), btn = $('tBtn'), chips = $('tChips'), hint = $('tHint');
 
@@ -240,6 +240,7 @@
   }
   chips.addEventListener('click', e => { const b = e.target.closest('.t-chip'); if (b) ask(b.textContent); });
 
+  const sfx = (n, o) => window.FG_SOUND && window.FG_SOUND.play(n, o);
   let busy = false;
   async function ask(q) {
     q = q.trim(); if (!q || busy) return;
@@ -247,12 +248,12 @@
     say(q, 'me'); input.value = '';
     const dots = say('…', 'ai typing');
     const [a] = await Promise.all([answer(q), new Promise(r => setTimeout(r, 550))]);
-    dots.remove(); say(a, 'ai'); renderChips(); busy = false;
+    dots.remove(); say(a, 'ai'); sfx('reply'); renderChips(); busy = false;
   }
-  $('tForm').addEventListener('submit', e => { e.preventDefault(); ask(input.value); });
+  $('tForm').addEventListener('submit', e => { e.preventDefault(); if (input.value.trim()) sfx('tick'); ask(input.value); });
 
   function open() {
-    panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); hint.hidden = true; store.set('fgHint', '1');
+    panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); hint.hidden = true; store.set('fgHint', '1'); sfx('open');
     if (!log.childElementCount && window.FG_LEARN) say(T(lang,
       'Hi, I’m Pawn, your chess tutor. Stuck on a step? Ask me for a hint, or ask anything about chess.',
       '안녕하세요, 저는 체스 튜터 폰이에요. 막히는 단계가 있으면 힌트를 달라고 하거나, 체스에 대해 무엇이든 물어보세요.'), 'ai');
@@ -261,7 +262,7 @@
       '안녕하세요, 저는 체스 튜터 폰이에요. 규칙이나 수에 대해 무엇이든 물어보세요. 아래 체스판에 기물이 다 놓이면, 둔 수도 함께 봐 드릴게요.'), 'ai');
     renderChips(); setTimeout(() => input.focus(), 50);
   }
-  function close() { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); btn.focus(); }
+  function close() { if (!panel.hidden) sfx('close'); panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); btn.focus(); }
   btn.addEventListener('click', () => (panel.hidden ? open() : close()));
   $('tClose').addEventListener('click', close);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) close(); });

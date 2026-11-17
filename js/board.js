@@ -75,6 +75,7 @@
 
     // ---------- hands on the board: drag to move, knock pieces over ----------
     const LIVE = 0.995, BOUND = 3.9, FALL_MS = 520;
+    let lastProg = 0;
     let live = false, lastCam = null, lastAsp = 1, lastOff = 0;
     const radius = p => p.r0 * S, length = p => GEO[p.type].h * S;
     // the tilt at which a piece lying on its side rests with its tip on the board
@@ -86,6 +87,8 @@
     }
     function leaveLive() { live = false; canvas.style.pointerEvents = ''; for (const p of order) delete p.ix; drag = null; canvas.style.cursor = ''; }
 
+    const SND = window.FG_SOUND, sfx = (n, o) => SND && SND.play(n, o);
+    const panOf = x => Math.max(-.7, Math.min(.7, x / 5.5));
     const anim = (p, key, to, dur, ease) => { p.anims = p.anims.filter(a => a.key !== key); p.anims.push({ key, from: p[key], to, t0: performance.now(), dur, ease }); };
     const fallEase = u => u < .78 ? (u / .78) ** 2 : 1 - .07 * Math.sin((u - .78) / .22 * Math.PI);
     function knock(p, dx, dz, delay = 0) {
@@ -99,6 +102,7 @@
       const rb = radius(p);
       p.ix += dx * rb; p.iz += dz * rb; p.dir = [dx, dz]; p.pivot = true;
       anim(p, 'th', restAngle(p), FALL_MS, fallEase);
+      sfx('fall', { pan: panOf(p.ix), delay: FALL_MS * .78 / 1000 });
       // dominoes: whatever stands in the falling piece's path goes too
       const L = length(p);
       for (const q of order) {
@@ -142,11 +146,20 @@
       for (const p of order) {
         let ps;
         if (live) { const lp = livePose(p); ps = { pos: lp.pos, q: lp.q, scale: S }; }
-        else { ps = pose(p, prog); if (!ps) continue; }
+        else {
+          ps = pose(p, prog);
+          // a knock when a piece lands; forget it when scrolling back above, so it knocks again next time
+          const landed = !!(ps && ps.landed);
+          if (landed && !p.heard && prog > lastProg) sfx('land', { type: p.type, pan: panOf(p.end[0]) });
+          p.heard = landed;
+          if (!ps) continue;
+        }
         pieces.push({ type: p.type, white: p.white, m: M.compose(ps.pos, ps.q, ps.scale) });
         const lying = live && p.th > .3;
         ao.push({ x: ps.pos[0], z: ps.pos[2], r: p.r0 * ps.scale * (lying ? .6 : 1), lift: Math.max(0, ps.pos[1] - TOP - (lying ? radius(p) : 0)), vis: clamp(ps.scale / S), spread: S });
       }
+      if (!live) for (const mv of MOVES) { const done = prog >= mv[3]; if (done && !mv.heard && prog > lastProg) sfx('place', { pan: panOf(mv[0].end[0]) }); mv.heard = done; }
+      lastProg = prog;
       const la = (-38 + 30 * prog) * Math.PI / 180, le = 46 * Math.PI / 180;
       const L = [Math.cos(le) * Math.sin(la), Math.sin(le), Math.cos(le) * Math.cos(la)];
       const bg = .93 * (.33 + L[1] * 2.9);
@@ -197,6 +210,7 @@
       const hit = onPlane(rr, TOP + .4) || [p.ix, 0, p.iz];
       drag = { p, id: e.pointerId, ox: p.ix - hit[0], oz: p.iz - hit[2], last: [p.ix, p.iz], t: performance.now(), v: 0 };
       anim(p, 'lift', .4, 160);
+      sfx('lift', { pan: panOf(p.ix) });
       canvas.style.cursor = 'grabbing'; wake();
     });
     // stand a fallen piece back up about its own base
@@ -227,6 +241,7 @@
       // settle on the nearest square
       const fx = clamp(Math.round(p.ix + 3.5), 0, 7) - 3.5, fz = clamp(Math.round(p.iz + 3.5), 0, 7) - 3.5;
       anim(p, 'ix', fx, 220); anim(p, 'iz', fz, 220); anim(p, 'lift', 0, 260, u => u * u);
+      sfx('place', { pan: panOf(fx), delay: .24 });
       // whoever was standing there is knocked off it
       for (const q of order) { if (q === p) continue; const [bx, bz] = baseOf(q); const dx = bx - fx, dz = bz - fz; if (Math.hypot(dx, dz) < .42 && q.th < .2) knock(q, dx || .3, dz || .3, 160); }
       canvas.style.cursor = 'grab'; wake();
@@ -234,7 +249,7 @@
     canvas.addEventListener('pointerup', drop);
     canvas.addEventListener('pointercancel', drop);
     // a double click puts every piece back where it stood
-    canvas.addEventListener('dblclick', () => { if (!live) return; goLive(); wake(); });
+    canvas.addEventListener('dblclick', () => { if (!live) return; goLive(); sfx('reset'); wake(); });
 
     // ---------- scroll ----------
     let target = reduced ? 1 : 0, cur = target, raf = 0, visible = false;

@@ -97,7 +97,7 @@
     [...document.querySelectorAll('.fd')].forEach((el, i) => A(el, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: 1200 + i * 100 }));
   };
   const hide = () => { cancelAnimationFrame(raf); loader.style.display = 'none'; body.classList.remove('intro-on'); };
-  const finish = () => { gen++; cancelAnimationFrame(raf); anims.forEach(a => a.finish()); hide(); body.classList.remove('pre'); };
+  const finish = () => { if (cues.length && window.FG_SOUND) window.FG_SOUND.stopIntro(); cues = []; gen++; cancelAnimationFrame(raf); anims.forEach(a => a.finish()); hide(); body.classList.remove('pre'); };
   const handOff = my => {
     handed = true;
     const a = loader.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 800, easing: 'ease-in-out', fill: 'forwards' });
@@ -106,9 +106,21 @@
     landingIn();
   };
 
+  // sound cues on the intro's clock: a note as each piece rises, a ripple for the wave, low notes as they sink
+  const SND = window.FG_SOUND;
+  let cues = [];
+  const makeCues = () => {
+    cues = [];
+    for (let i = 0; i < 6; i++) cues.push([T.rise0 + i * T.riseStep + .25, 'introRise', { i }]);
+    for (let i = 0; i < 6; i++) cues.push([T.wave0 + i * T.waveStep + .2, 'introWave', { i }]);
+    SINK.forEach((pi, k) => cues.push([T.sink0 + k * .11 + .15, 'introSink', { i: k }]));
+    cues.push([T.curtain, 'introCurtain', {}], [T.end - .3, 'introLand', {}]);
+    cues.sort((a, b) => a[0] - b[0]);
+  };
   const frame = my => now => {
     if (my !== gen) return;
     const t = (now - t0) / 1000;
+    while (SND && cues.length && cues[0][0] <= t) { const [ct, n, o] = cues.shift(); if (t - ct < .4) SND.play(n, o); }
     try { draw(Math.min(t, T.end)); } catch (e) { console.error(e); finish(); return; }
     if (t >= T.curtain && !curtainOn) {
       curtainOn = true;
@@ -125,7 +137,7 @@
     anims.forEach(a => a.cancel()); anims = []; curtainOn = false; handed = false;
     body.classList.add('pre', 'intro-on'); loader.style.display = 'block'; loader.style.opacity = 1;
     window.scrollTo(0, 0);
-    t0 = performance.now();
+    t0 = performance.now(); makeCues();
     raf = requestAnimationFrame(frame(my));
   };
 

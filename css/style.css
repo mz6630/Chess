@@ -107,3 +107,10 @@ nav{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-be
 .t-form input:focus-visible{box-shadow:inset 0 0 0 2px var(--ink)}
 .t-send{width:52px;background:var(--ink);color:var(--paper);font-size:20px}
 @media (prefers-reduced-motion: reduce){.t-pawn,.t-pawn .eyes,.t-mini .eyes{animation:none}}
+
+/* sound toggle: a small speaker that sits above Pawn */
+.snd{position:fixed;right:calc(max(20px,env(safe-area-inset-right,0px)) + 12px);bottom:calc(max(20px,env(safe-area-inset-bottom,0px)) + 76px);z-index:14;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--paper);color:var(--ink);border:1px solid var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.14);transition:transform .2s}
+.snd:hover{transform:scale(1.06)}
+.snd svg{width:20px;height:20px}
+.snd[aria-pressed="false"]{color:var(--md)}
+.intro-on .snd{display:none}
