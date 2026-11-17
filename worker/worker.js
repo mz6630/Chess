@@ -96,10 +96,12 @@ export default {
 
     // Status check: open the Worker's address in a browser. It lists models only (no answer is generated).
     if (request.method === 'GET') {
-      if (!key) return json({ ok: false, problem: 'GEMINI_API_KEY is not set. Add it under Settings > Variables and Secrets as a Secret, then deploy.' });
+      const where = request.cf && request.cf.colo;
+      const backup = env.AI ? 'Workers AI is on: Pawn can answer even when Gemini refuses' : 'Workers AI backup is off (Settings > Bindings > Add > Workers AI, name it AI)';
+      if (!key) return json({ pawnCanAnswer: !!env.AI, backup, gemini: 'GEMINI_API_KEY is not set', where });
       const list = await listModels(key);
-      if (!list.ok) return json({ ok: false, problem: `Google refused the request (HTTP ${list.status}).`, google: list.detail, where: request.cf && request.cf.colo, keyLooksLike: key.slice(0, 4) + '…' + key.slice(-2) + ` (${key.length} chars)` });
-      return json({ ok: true, message: 'The key works. Pawn will try these models in order.', try: [...PREFERRED, ...list.models.filter(m => !PREFERRED.includes(m))].slice(0, 8), backup: env.AI ? 'Workers AI is on' : 'Workers AI backup is off (add a Workers AI binding named AI)', where: request.cf && request.cf.colo });
+      if (!list.ok) return json({ pawnCanAnswer: !!env.AI, backup, gemini: `refused here (HTTP ${list.status}): ${list.detail}`, where });
+      return json({ pawnCanAnswer: true, backup, gemini: 'works here', try: [...PREFERRED, ...list.models.filter(m => !PREFERRED.includes(m))].slice(0, 8), where });
     }
 
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405);
