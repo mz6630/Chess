@@ -1,26 +1,80 @@
 // Pawn's AI endpoint on Cloudflare Workers (free plan), answering with Google Gemini (free tier).
 // Paste this whole file into a Worker, add the secret GEMINI_API_KEY, deploy, and put the Worker's
 // address in js/config.js. The site sends POST {question, lang, context}; this answers {reply}.
+// Open the Worker's address in a browser (GET) to see a status check: whether the key is set,
+// whether Google accepts it, and which model Pawn will use.
 
 const ALLOWED_ORIGINS = ['https://mz6630.github.io'];
-// Tried in order: if one is busy or unavailable on the free tier, the next one answers.
-const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+// Tried first. The "-latest" aliases follow Google's current Flash models, so retirements don't break Pawn.
+// If none of these work, the Worker asks Google which models this key can use and picks a Flash one.
+const PREFERRED = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
+const API = 'https://generativelanguage.googleapis.com/v1beta';
+
+let working = null; // the model that answered last, reused while the Worker stays warm
+
+async function listModels(key) {
+  const r = await fetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': key } });
+  const text = await r.text();
+  if (!r.ok) return { ok: false, status: r.status, detail: text.slice(0, 300), models: [] };
+  const j = JSON.parse(text);
+  const models = (j.models || [])
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => m.name.replace(/^models\//, ''))
+    .filter(n => /flash/.test(n) && !/image|tts|audio|live|embed|preview|exp/.test(n));
+  // Newest first: sort by the version number in the name, lite after full.
+  const ver = n => parseFloat((n.match(/(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+  models.sort((a, b) => (ver(b) - ver(a)) || (a.includes('lite') - b.includes('lite')));
+  return { ok: true, status: r.status, models };
+}
+
+async function generate(model, key, system, prompt) {
+  const body = thinking => {
+    const generationConfig = { maxOutputTokens: 1024, temperature: 0.6 };
+    if (thinking && /^gemini-2\.5/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    return JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig
+    });
+  };
+  const call = thinking => fetch(`${API}/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: body(thinking)
+  });
+  let r = await call(true);
+  if (r.status === 400 && /^gemini-2\.5/.test(model)) r = await call(false); // model refused the thinking setting
+  if (!r.ok) return { ok: false, status: r.status, detail: (await r.text()).slice(0, 300) };
+  const j = await r.json();
+  const reply = ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
+  return reply ? { ok: true, reply } : { ok: false, status: 200, detail: 'empty answer' };
+}
 
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
     const cors = {
       'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Vary': 'Origin'
     };
-    const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+    const json = (body, status = 200) => new Response(JSON.stringify(body, null, 2), { status, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' } });
+    const key = env.GEMINI_API_KEY;
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+
+    // Status check: open the Worker's address in a browser. It lists models only (no answer is generated).
+    if (request.method === 'GET') {
+      if (!key) return json({ ok: false, problem: 'GEMINI_API_KEY is not set. Add it under Settings > Variables and Secrets as a Secret, then deploy.' });
+      const list = await listModels(key);
+      if (!list.ok) return json({ ok: false, problem: `Google rejected the key (HTTP ${list.status}). Check the key at aistudio.google.com/apikey.`, detail: list.detail });
+      return json({ ok: true, message: 'The key works. Pawn will try these models in order.', try: [...PREFERRED, ...list.models.filter(m => !PREFERRED.includes(m))].slice(0, 8) });
+    }
+
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405);
-    if (!ALLOWED_ORIGINS.includes(origin)) return json({ error: 'Not allowed' }, 403);
-    if (!env.GEMINI_API_KEY) return json({ error: 'GEMINI_API_KEY is not set' }, 500);
+    if (!ALLOWED_ORIGINS.includes(origin)) return json({ error: `Origin not allowed: ${origin || '(none)'}` }, 403);
+    if (!key) return json({ error: 'GEMINI_API_KEY is not set' }, 500);
 
     let data;
     try { data = await request.json(); } catch (e) { return json({ error: 'Bad JSON' }, 400); }
@@ -36,23 +90,27 @@ export default {
     ].join(' ');
     const prompt = `Situation: ${JSON.stringify(context || {}).slice(0, 6000)}\n\nQuestion: ${question}`;
 
-    for (const model of MODELS) {
-      const generationConfig = { maxOutputTokens: 500, temperature: 0.6 };
-      if (model.startsWith('gemini-2.5')) generationConfig.thinkingConfig = { thinkingBudget: 0 };
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig
-        })
-      });
-      if (!r.ok) { console.log(model, r.status, (await r.text()).slice(0, 300)); continue; }
-      const j = await r.json();
-      const reply = ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
-      if (reply) return json({ reply });
+    const tried = [];
+    const attempt = async model => {
+      const res = await generate(model, key, system, prompt);
+      if (res.ok) { working = model; return res.reply; }
+      tried.push(`${model}: ${res.status}`);
+      console.log(model, res.status, res.detail);
+      if (res.status === 429) tried.push('(free-tier limit reached; wait a minute)');
+      return null;
+    };
+
+    let reply = null;
+    for (const m of [working, ...PREFERRED].filter((m, i, a) => m && a.indexOf(m) === i)) {
+      if ((reply = await attempt(m))) break;
     }
-    return json({ error: 'AI unavailable' }, 502);
+    if (!reply) {
+      const list = await listModels(key);
+      if (!list.ok) return json({ error: `Google rejected the key (HTTP ${list.status})`, tried }, 502);
+      for (const m of list.models.filter(m => !PREFERRED.includes(m)).slice(0, 4)) {
+        if ((reply = await attempt(m))) break;
+      }
+    }
+    return reply ? json({ reply, model: working }) : json({ error: 'AI unavailable', tried }, 502);
   }
 };

@@ -179,10 +179,22 @@
       try {
         const ctx = { section: where(), board: window.FG_BOARD && window.FG_BOARD.pieces ? window.FG_BOARD.pieces() : null, analysis: analyse(lang) };
         const r = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, lang, context: ctx }) });
-        if (r.ok) { const j = await r.json(); if (j && j.reply) return j.reply; }
-      } catch (e) { /* fall back to Pawn's own answers */ }
+        const j = await r.json().catch(() => null);
+        if (r.ok && j && j.reply) return j.reply;
+        aiNote(`HTTP ${r.status}${j && j.error ? ' · ' + j.error : ''}${j && j.tried ? ' · ' + j.tried.join(', ') : ''}`);
+      } catch (e) { aiNote(String(e && e.message || e)); }
     }
     return localAnswer(q, lang);
+  }
+
+  // When the AI endpoint fails, say why once (small grey line), then answer locally.
+  let noted = false;
+  function aiNote(why) {
+    console.warn('Pawn AI endpoint failed:', why);
+    if (noted) return; noted = true;
+    const p = document.createElement('p'); p.className = 't-msg note';
+    p.textContent = 'AI offline (' + why + '). Answering on my own for now.';
+    log.appendChild(p);
   }
 
   // ---------- conversation ----------
