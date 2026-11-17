@@ -260,5 +260,15 @@
     addEventListener('resize', () => { if (visible) draw(cur); });
     if (reduced) section.classList.add('still');
     window.__board3d = { draw, order, pick: e => pick(ray(e)) };
+    // what the tutor can see: where every piece should be after 1. d4 d5 2. c4, and where it is now
+    const NAME = (f, r) => 'abcdefgh'[f] + r;
+    const homeOf = p => { const mv = MOVES.find(m => m[0] === p); return NAME(p.f, mv ? mv[1] : p.r); };
+    window.FG_BOARD = {
+      isLive: () => live,
+      pieces: () => live ? order.map(p => {
+        const [x, z] = baseOf(p), f = clamp(Math.round(x + 3.5), 0, 7), r = clamp(Math.round(4.5 - z), 1, 8);
+        return { type: p.type, white: p.white, home: homeOf(p), square: NAME(f, r), fallen: p.th > .3 };
+      }) : null
+    };
   }
 }
