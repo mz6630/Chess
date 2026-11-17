@@ -12,10 +12,16 @@ const API = 'https://generativelanguage.googleapis.com/v1beta';
 
 let working = null; // the model that answered last, reused while the Worker stays warm
 
+// Google's own error sentence, e.g. "API key not valid" or "User location is not supported".
+function googleMessage(text) {
+  try { const e = JSON.parse(text).error; return `${e.status || ''} ${e.message || ''}`.trim().slice(0, 200); }
+  catch (_) { return text.slice(0, 200); }
+}
+
 async function listModels(key) {
   const r = await fetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': key } });
   const text = await r.text();
-  if (!r.ok) return { ok: false, status: r.status, detail: text.slice(0, 300), models: [] };
+  if (!r.ok) return { ok: false, status: r.status, detail: googleMessage(text), models: [] };
   const j = JSON.parse(text);
   const models = (j.models || [])
     .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
@@ -44,7 +50,7 @@ async function generate(model, key, system, prompt) {
   });
   let r = await call(true);
   if (r.status === 400 && /^gemini-2\.5/.test(model)) r = await call(false); // model refused the thinking setting
-  if (!r.ok) return { ok: false, status: r.status, detail: (await r.text()).slice(0, 300) };
+  if (!r.ok) return { ok: false, status: r.status, detail: googleMessage(await r.text()) };
   const j = await r.json();
   const reply = ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
   return reply ? { ok: true, reply } : { ok: false, status: 200, detail: 'empty answer' };
@@ -60,7 +66,8 @@ export default {
       'Vary': 'Origin'
     };
     const json = (body, status = 200) => new Response(JSON.stringify(body, null, 2), { status, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' } });
-    const key = env.GEMINI_API_KEY;
+    // Strip spaces, line breaks and quotes that often sneak in when the key is pasted.
+    const key = (env.GEMINI_API_KEY || '').trim().replace(/^["'`]+|["'`]+$/g, '').trim();
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
@@ -68,7 +75,7 @@ export default {
     if (request.method === 'GET') {
       if (!key) return json({ ok: false, problem: 'GEMINI_API_KEY is not set. Add it under Settings > Variables and Secrets as a Secret, then deploy.' });
       const list = await listModels(key);
-      if (!list.ok) return json({ ok: false, problem: `Google rejected the key (HTTP ${list.status}). Check the key at aistudio.google.com/apikey.`, detail: list.detail });
+      if (!list.ok) return json({ ok: false, problem: `Google refused the request (HTTP ${list.status}).`, google: list.detail, where: request.cf && request.cf.colo, keyLooksLike: key.slice(0, 4) + '…' + key.slice(-2) + ` (${key.length} chars)` });
       return json({ ok: true, message: 'The key works. Pawn will try these models in order.', try: [...PREFERRED, ...list.models.filter(m => !PREFERRED.includes(m))].slice(0, 8) });
     }
 
@@ -106,7 +113,7 @@ export default {
     }
     if (!reply) {
       const list = await listModels(key);
-      if (!list.ok) return json({ error: `Google rejected the key (HTTP ${list.status})`, tried }, 502);
+      if (!list.ok) return json({ error: `Google: ${list.detail}`, tried }, 502);
       for (const m of list.models.filter(m => !PREFERRED.includes(m)).slice(0, 4)) {
         if ((reply = await attempt(m))) break;
       }
