@@ -27,6 +27,19 @@ Click anywhere or press any key to skip the intro. Click the *First Gambit* logo
 
 No build step and no libraries: open `index.html` in a browser, or serve the folder with GitHub Pages. Fonts (Bodoni Moda, Jost) load from Google Fonts. Browsers without WebGL2, or with reduced motion turned on, skip straight to the landing.
 
+## Learn page (`learn.html`)
+
+A course for people who have never played: 6 chapters, 23 lessons. Chapters 1 (the board) and 2 (the pieces) are built:
+
+1. Meet the board: 64 squares, light and dark, "light on the right"
+2. Names of the squares: files a–h, ranks 1–8, finding squares by name
+3. Ranks, files and diagonals
+4. Six pieces: names, shapes and how many of each
+5. The starting position: set up White's back rank yourself
+6. Taking turns: White first, then the first moves of the Queen's Gambit
+
+Each lesson is a few short steps with a task (click a square, turn the board, pick a piece, place pieces). The board is drawn flat with the set's own silhouettes (`js/flat.js`). Lessons can be read in English or Korean, progress is kept in the browser, and Pawn reads the current step to give hints. `index.html#main` opens the home page without the intro.
+
 ## Connecting Pawn to a real AI model (free)
 
 Pawn answers on its own out of the box. `worker/worker.js` is a Cloudflare Worker that forwards questions to Google Gemini, keeping the API key secret. Both run on free plans with no card: Cloudflare Workers Free allows 100,000 requests a day, and Gemini's free tier has its own per-minute and per-day limits (free-tier prompts may be used by Google to improve its products).

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learn · First Gambit</title>
+<meta name="description" content="Learn chess from zero: the board, the pieces, where they stand, and how a game begins.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@300;400;500&display=swap">
+<link rel="stylesheet" href="css/style.css?v=202611171900">
+<link rel="stylesheet" href="css/learn.css?v=202611171900">
+</head>
+<body class="learn">
+
+<header class="lh">
+  <nav><a class="mark" href="index.html" aria-label="First Gambit, home">First Gambit</a><div class="links cap"><a href="index.html#main">Main</a><a href="index.html#play">Play</a><a href="learn.html" aria-current="page">Learn</a></div></nav>
+  <h1 class="lh-title">Learn</h1>
+  <svg class="lh-set" id="lhSet" aria-hidden="true"></svg>
+</header>
+<div class="lh-refl" aria-hidden="true"><svg id="lhRefl"></svg></div>
+
+<main class="map" id="map">
+  <div class="map-intro">
+    <p class="lede-dark" data-i18n="lede"></p>
+    <div class="map-go">
+      <a class="btn" id="goBtn" href="#/1"></a>
+      <div class="lang" role="group" aria-label="Lesson language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button><button type="button" data-lang="ko" aria-pressed="false">한국어</button>
+      </div>
+    </div>
+  </div>
+  <ol class="chapters" id="chapters"></ol>
+</main>
+
+<section class="lesson" id="lesson" hidden aria-labelledby="lTitle">
+  <header class="l-bar">
+    <a class="l-back cap" href="#" id="lExit">← <span data-i18n="all"></span></a>
+    <p class="l-meta cap" id="lMeta"></p>
+    <div class="lang" role="group" aria-label="Lesson language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button><button type="button" data-lang="ko" aria-pressed="false">한국어</button>
+    </div>
+  </header>
+  <div class="l-copy">
+    <ol class="l-pips" id="lPips" aria-hidden="true"></ol>
+    <p class="l-num" id="lNum"></p>
+    <h2 class="l-title" id="lTitle" tabindex="-1"></h2>
+    <div class="l-step" id="lStep">
+      <p class="l-text" id="lText"></p>
+      <div class="l-task" id="lTask" hidden><p class="cap" data-i18n="yourTurn"></p><p id="lTaskText"></p></div>
+      <div class="l-choices" id="lChoices"></div>
+      <p class="l-feed" id="lFeed" aria-live="polite"></p>
+    </div>
+    <div class="l-end" id="lEnd" hidden>
+      <p class="cap" data-i18n="complete"></p>
+      <p class="l-end-text" id="lEndText"></p>
+      <a class="btn" id="lNextLesson" href="#/2"></a>
+    </div>
+    <div class="l-nav" id="lNav">
+      <button type="button" class="btn ghost" id="lPrev" data-i18n="back"></button>
+      <button type="button" class="btn" id="lNext" disabled></button>
+    </div>
+  </div>
+  <div class="l-stage" id="lStage">
+    <div class="board-wrap" id="boardWrap">
+      <svg class="board" id="board" viewBox="-0.62 -0.12 8.74 8.74" tabindex="0" role="img"></svg>
+      <p class="you cap" id="youSit" hidden data-i18n="youSit"></p>
+    </div>
+    <svg class="lineup" id="lineup" hidden></svg>
+    <div class="tray" id="tray" hidden></div>
+    <p class="sr" id="boardSay" aria-live="polite"></p>
+  </div>
+</section>
+
+<script src="js/flat.js?v=202611171900"></script>
+<script src="js/learn.js?v=202611171900"></script>
+<script src="js/config.js?v=202611171900"></script>
+<script src="js/tutor.js?v=202611171900"></script>
+</body>
+</html>

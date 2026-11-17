@@ -136,5 +136,6 @@
   // "Main" scrolls back to the top
   $('toMain').addEventListener('click', e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
-  if (canPlay()) play();
+  // index.html#main (the Main link on other pages) opens straight on the landing, without the intro
+  if (canPlay() && location.hash !== '#main') play();
 }

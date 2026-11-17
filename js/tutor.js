@@ -56,6 +56,24 @@
       '왼쪽 위 First Gambit 로고를 누르면 인트로를 다시 볼 수 있어요.']]
   ];
   const TOPICS = [
+    [/\bfiles?\b|파일|세로줄/i, ['A file is a column of squares going up the board. There are eight, named a to h from left to right.',
+      '파일은 위아래로 이어진 세로줄이에요. 왼쪽부터 a~h까지 8개가 있어요.']],
+    [/\branks?\b|랭크|가로줄/i, ['A rank is a row of squares going across the board. There are eight, numbered 1 to 8 from White’s side.',
+      '랭크는 가로로 이어진 줄이에요. 백 쪽부터 1~8까지 8개가 있어요.']],
+    [/diagonal|대각선/i, ['A diagonal is a slanting line of squares that touch at their corners. Every square on it has the same colour.',
+      '대각선은 모서리끼리 닿으며 비스듬히 이어진 칸들이에요. 대각선 위의 칸은 모두 같은 색이에요.']],
+    [/square.*name|name.*square|coordinat|칸.*이름|좌표/i, ['Each square is named by its file letter, then its rank number. The e-file meets rank 4 at e4.',
+      '칸 이름은 파일 알파벳을 먼저, 랭크 숫자를 나중에 읽어요. e 파일과 4 랭크가 만나는 칸이 e4예요.']],
+    [/light on the right|which way|turn the board|방향|어떻게 놓|돌려/i, ['Turn the board so the corner square on your right is light: “light on the right”.',
+      '오른쪽 구석 칸이 밝은 칸이 되게 놓아요. “오른쪽 구석은 밝은 칸”으로 외우면 쉬워요.']],
+    [/how many (pieces|squares)|몇 ?개|개수/i, ['The board has 64 squares. Each player has 16 pieces: 8 pawns, 2 rooks, 2 knights, 2 bishops, 1 queen and 1 king.',
+      '체스판은 64칸이에요. 각자 기물 16개를 가져요. 폰 8, 룩 2, 나이트 2, 비숍 2, 퀸 1, 킹 1개예요.']],
+    [/set ?up|starting position|start position|시작 ?자리|배치|어디에 놓/i, ['Pawns on the second rank. Behind them, from the corners in: rook, knight, bishop, then the queen on her own colour (d1 or d8) and the king beside her.',
+      '폰은 두 번째 줄에 서요. 그 뒤로 구석부터 룩, 나이트, 비숍, 그리고 퀸은 자기 색 칸(d1이나 d8)에, 킹은 그 옆에 서요.']],
+    [/who (moves|goes|plays|starts)|moves? first|goes first|whose turn|먼저 (두|해|움직|시작)|누가 먼저|누구 차례|차례/i, ['White always moves first. Then the players take turns, one move each.',
+      '항상 백이 먼저 둬요. 그다음부터 한 수씩 번갈아 둬요.']],
+    [/why.*(matter|important)|왜 중요/i, ['Everything later builds on this. Square names let you read moves, and the lines are the roads every piece travels.',
+      '앞으로 배울 모든 것이 여기서 시작해요. 칸 이름을 알아야 수를 읽을 수 있고, 줄들은 모든 기물이 다니는 길이에요.']],
     [/castl|캐슬링/i, ['Castling moves the king two squares toward a rook, and the rook jumps to the square the king crossed. Neither may have moved before, the squares between must be empty, and the king may not be in, pass through, or land in check.',
       '캐슬링은 킹을 룩 쪽으로 두 칸 옮기고, 룩을 킹이 지나간 칸으로 넘기는 수예요. 킹과 룩 모두 한 번도 움직이지 않았어야 하고, 사이 칸이 비어 있어야 해요. 킹이 체크 상태이거나 체크당하는 칸을 지나가거나 그런 칸에 도착해도 안 돼요.']],
     [/en passant|앙파상/i, ['En passant: if a pawn moves two squares and lands right beside your pawn, you may capture it as if it had moved only one square. You must do it on the very next move or lose the chance.',
@@ -151,6 +169,7 @@
   }
 
   function where() {
+    if (window.FG_LEARN) return window.FG_LEARN.active() ? 'lesson' : 'course';
     const s = document.getElementById('setup');
     if (document.body.classList.contains('intro-on')) return 'intro';
     if (s && s.getBoundingClientRect().top < innerHeight * .5) return 'board';
@@ -159,10 +178,14 @@
 
   function localAnswer(q, lang) {
     const t = q.trim();
+    const W = where();
+    if (window.FG_LEARN && /hint|help|stuck|don.?t (get|know|understand)|how do i|what do i|힌트|도와|모르겠|막혔|어떻게 해|뭘 해/i.test(t)) return window.FG_LEARN.hint(lang);
+    if (window.FG_LEARN && /again|explain|repeat|다시|설명/i.test(t)) return window.FG_LEARN.explain(lang);
+    if (W === 'course' && /start|begin|where|what.*learn|어디|시작|뭘 배|무엇을 배/i.test(t)) return window.FG_LEARN.hint(lang) + '\n\n' + window.FG_LEARN.explain(lang);
     if (/^(hi|hello|hey)\b|안녕|하이/i.test(t)) return T(lang,
       'Hi, I’m Pawn! Ask me how a piece moves, what a rule means, or say “analyse the board” after you move pieces below.',
       '안녕하세요, 저는 폰이에요! 기물이 어떻게 움직이는지, 규칙이 무슨 뜻인지 물어보세요. 아래 체스판에서 기물을 옮긴 뒤 “보드 분석해줘”라고 하면 상황을 봐 드려요.');
-    if (/analy|board|position|next|best|what should|suggest|분석|상황|보드|다음|뭐.*(둬|두|해)|어떻게.*둬|추천|봐줘|조언/i.test(t)) return analyse(lang);
+    if (!window.FG_LEARN && /analy|board|position|next|best|what should|suggest|분석|상황|보드|다음|뭐.*(둬|두|해)|어떻게.*둬|추천|봐줘|조언/i.test(t)) return analyse(lang);
     for (const [re, a] of TOPICS) if (re.test(t)) return a[lang === 'ko' ? 1 : 0];
     for (const k of Object.keys(NAMES)) if (new RegExp(`${NAMES[k][0]}|${NAMES[k][1]}`, 'i').test(t)) return PIECE[k][lang === 'ko' ? 1 : 0];
     for (const [re, a] of LATE) if (re.test(t)) return a[lang === 'ko' ? 1 : 0];
@@ -177,7 +200,8 @@
     const ep = window.FG_TUTOR_ENDPOINT;
     if (ep) {
       try {
-        const ctx = { section: where(), board: window.FG_BOARD && window.FG_BOARD.pieces ? window.FG_BOARD.pieces() : null, analysis: analyse(lang) };
+        const ctx = window.FG_LEARN ? { section: where(), lesson: window.FG_LEARN.context() }
+          : { section: where(), board: window.FG_BOARD && window.FG_BOARD.pieces ? window.FG_BOARD.pieces() : null, analysis: analyse(lang) };
         const r = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, lang, context: ctx }) });
         const j = await r.json().catch(() => null);
         if (r.ok && j && j.reply) return j.reply;
@@ -205,7 +229,9 @@
   const CHIPS = {
     landing: [['How does the knight move?', '나이트는 어떻게 움직여?'], ['What is the Queen’s Gambit?', '퀸스 갬빗이 뭐야?'], ['Opening tips', '오프닝 팁']],
     board: [['Analyse the board', '보드 분석해줘'], ['What should Black play?', '흑은 뭘 둬야 해?'], ['How do I move pieces?', '기물은 어떻게 옮겨?']],
-    intro: [['What is this site?', '이 사이트는 뭐야?']]
+    intro: [['What is this site?', '이 사이트는 뭐야?']],
+    lesson: [['Give me a hint', '힌트 줘'], ['Explain it again', '다시 설명해줘'], ['Why does this matter?', '이게 왜 중요해?']],
+    course: [['Where do I start?', '어디서부터 시작해?'], ['What is a rank?', '랭크가 뭐야?'], ['How many pieces are there?', '기물은 몇 개야?']]
   };
   let lang = (navigator.language || '').startsWith('ko') ? 'ko' : 'en';
   function renderChips() {
@@ -227,6 +253,9 @@
 
   function open() {
     panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); hint.hidden = true; store.set('fgHint', '1');
+    if (!log.childElementCount && window.FG_LEARN) say(T(lang,
+      'Hi, I’m Pawn, your chess tutor. Stuck on a step? Ask me for a hint, or ask anything about chess.',
+      '안녕하세요, 저는 체스 튜터 폰이에요. 막히는 단계가 있으면 힌트를 달라고 하거나, 체스에 대해 무엇이든 물어보세요.'), 'ai');
     if (!log.childElementCount) say(T(lang,
       'Hi, I’m Pawn, your chess tutor. Ask me about any rule or move. When the pieces have landed on the board below, I can also look at what you played.',
       '안녕하세요, 저는 체스 튜터 폰이에요. 규칙이나 수에 대해 무엇이든 물어보세요. 아래 체스판에 기물이 다 놓이면, 둔 수도 함께 봐 드릴게요.'), 'ai');
