@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Play · First Gambit</title>
+<meta name="description" content="Play chess against the computer, a friend, or step into a famous game. A real chess clock, a scoresheet, 3D or 2D, and a review afterwards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@300;400;500&family=Caveat:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/style.css?v=202611181400">
+<link rel="stylesheet" href="css/learn.css?v=202611181400">
+<link rel="stylesheet" href="css/play.css?v=202611181400">
+</head>
+<body class="learn play">
+
+<!-- ============ setup ============ -->
+<div id="setup">
+  <header class="lh ph">
+    <nav><a class="mark" href="index.html" aria-label="First Gambit, home">First Gambit</a><div class="links cap"><a href="index.html#main">Main</a><a href="play.html" aria-current="page">Play</a><a href="learn.html">Learn</a></div></nav>
+    <h1 class="lh-title">Play</h1>
+  </header>
+  <main class="ps">
+    <div class="ps-intro">
+      <p class="lede-dark" data-i18n="lede"></p>
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="en" aria-pressed="true">EN</button><button type="button" data-lang="ko" aria-pressed="false">한국어</button></div>
+    </div>
+
+    <section class="ps-row">
+      <p class="ps-n" aria-hidden="true">01</p>
+      <div class="ps-body">
+        <h2 data-i18n="s1"></h2>
+        <div class="seg big" data-opt="mode" role="group" aria-label="Mode">
+          <button type="button" data-v="ai" data-i18n="mAI"></button><button type="button" data-v="two" data-i18n="mTwo"></button><button type="button" data-v="legend" data-i18n="mLeg"></button>
+        </div>
+        <div id="optAI" class="ps-sub">
+          <p class="cap" data-i18n="level"></p>
+          <div class="seg" data-opt="level" role="group" aria-label="Level"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button></div>
+          <p class="cap" data-i18n="color"></p>
+          <div class="seg" data-opt="color" role="group" aria-label="Colour"><button type="button" data-v="w" data-i18n="white"></button><button type="button" data-v="b" data-i18n="black"></button><button type="button" data-v="random" data-i18n="random"></button></div>
+          <p class="cap" data-i18n="start"></p>
+          <div class="seg" data-opt="start" role="group" aria-label="Start"><button type="button" data-v="std" data-i18n="std"></button><button type="button" data-v="qg" data-i18n="qg"></button></div>
+          <label class="chk"><input type="checkbox" data-check="beginner"><span data-i18n="beginner"></span></label>
+          <label class="field"><span class="cap" data-i18n="yourName"></span><input id="nameIn" maxlength="24" autocomplete="name"></label>
+        </div>
+        <div id="optTwo" class="ps-sub" hidden>
+          <label class="field"><span class="cap" data-i18n="nameW"></span><input id="nameW" maxlength="24"></label>
+          <label class="field"><span class="cap" data-i18n="nameB"></span><input id="nameB" maxlength="24"></label>
+        </div>
+        <div id="optLegend" class="ps-sub" hidden>
+          <p data-i18n="pickLegend"></p>
+          <div class="legs" id="legendList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ps-row" id="optClock">
+      <p class="ps-n" aria-hidden="true">02</p>
+      <div class="ps-body">
+        <h2 data-i18n="s2"></h2>
+        <div class="seg" data-opt="time" role="group" aria-label="Time"><button type="button" data-v="none" data-i18n="none"></button><button type="button" data-v="blitz" data-i18n="blitz"></button><button type="button" data-v="rapid" data-i18n="rapid"></button><button type="button" data-v="classical" data-i18n="classical"></button></div>
+        <label class="chk" id="pressBox"><input type="checkbox" data-check="press"><span data-i18n="press"></span></label>
+      </div>
+    </section>
+
+    <section class="ps-row" id="optSheet">
+      <p class="ps-n" aria-hidden="true">03</p>
+      <div class="ps-body">
+        <h2 data-i18n="s3"></h2>
+        <label class="chk"><input type="checkbox" data-check="write"><span data-i18n="write"></span></label>
+      </div>
+    </section>
+
+    <section class="ps-row">
+      <p class="ps-n" aria-hidden="true">04</p>
+      <div class="ps-body">
+        <h2 data-i18n="s4"></h2>
+        <div class="seg" data-opt="view" role="group" aria-label="Board"><button type="button" data-v="3d" data-i18n="v3d"></button><button type="button" data-v="2d" data-i18n="v2d"></button></div>
+        <label class="chk"><input type="checkbox" data-check="ceiling"><span data-i18n="ceiling"></span></label>
+      </div>
+    </section>
+
+    <section class="ps-row" id="optTour">
+      <p class="ps-n" aria-hidden="true">05</p>
+      <div class="ps-body">
+        <h2 data-i18n="s5"></h2>
+        <label class="chk"><input type="checkbox" data-check="tournament"><span data-i18n="tour"></span></label>
+        <p class="ps-note" id="tourNote" data-i18n="tourNote"></p>
+        <button type="button" class="btn ghost" id="blankBtn" data-i18n="blank"></button>
+      </div>
+    </section>
+
+    <div class="ps-go"><button type="button" class="btn" id="goBtn" data-i18n="go"></button></div>
+  </main>
+</div>
+
+<!-- ============ game ============ -->
+<section class="pg" id="game" hidden aria-label="Game">
+  <header class="pg-bar">
+    <button type="button" class="l-back cap" id="newBtn" data-i18n="newGame">← New game</button>
+    <p class="l-meta cap" id="gameTitle"></p>
+    <div class="pg-tools">
+      <button type="button" class="tool" id="peekBtn" hidden>Peek (3)</button>
+      <button type="button" class="tool" id="flipBtn" aria-label="Flip the board">⇅</button>
+      <div class="seg small" id="viewSeg" role="group" aria-label="Board view"><button type="button" data-v="3d">3D</button><button type="button" data-v="2d">2D</button></div>
+    </div>
+  </header>
+  <div class="pg-main">
+    <div class="pg-eval" id="evalBar" hidden aria-hidden="true"><div class="pg-eval-fill" id="evalFill"></div><span id="evalNum"></span></div>
+    <div class="pg-board" id="boardHost"></div>
+    <div class="pg-promo" id="promo" hidden role="dialog" aria-label="Promote to">
+      <button type="button" data-p="Q" data-i18n="pQ">Queen</button><button type="button" data-p="R" data-i18n="pR">Rook</button><button type="button" data-p="B" data-i18n="pB">Bishop</button><button type="button" data-p="N" data-i18n="pN">Knight</button>
+    </div>
+  </div>
+  <aside class="pg-side">
+    <div class="clock" id="clock" hidden>
+      <div class="ck" data-c="w"><button type="button" class="ck-btn"><span class="ck-plunger"></span></button><p class="ck-name"></p><p class="ck-t">5:00</p></div>
+      <div class="ck" data-c="b"><button type="button" class="ck-btn"><span class="ck-plunger"></span></button><p class="ck-name"></p><p class="ck-t">5:00</p></div>
+    </div>
+    <p class="thinking" id="thinking" hidden></p>
+    <div class="pg-rev" id="reviewNav" hidden>
+      <div class="pg-prog"><i id="reviewProg"></i></div>
+      <div class="pg-rev-row"><button type="button" id="revFirst" aria-label="First move">⏮</button><button type="button" id="revPrev" aria-label="Previous move">◀</button><span id="revLabel"></span><button type="button" id="revNext" aria-label="Next move">▶</button><button type="button" id="revLast" aria-label="Last move">⏭</button></div>
+    </div>
+    <div class="coach" id="coachLog" aria-live="polite"></div>
+    <div class="sheet" id="sheet"></div>
+    <div class="pg-ctrl">
+      <button type="button" class="btn ghost" id="hintBtn" data-i18n="hint">Hint</button>
+      <button type="button" class="btn ghost" id="undoBtn" data-i18n="undo">Take back</button>
+      <button type="button" class="btn ghost" id="drawBtn" data-i18n="draw">Offer draw</button>
+      <button type="button" class="btn ghost" id="resignBtn" data-i18n="resign">Resign</button>
+      <button type="button" class="btn ghost" id="saveBtn" data-i18n="save">Save scoresheet</button>
+      <button type="button" class="btn ghost" id="pgnBtn">PGN</button>
+    </div>
+  </aside>
+</section>
+
+<script src="js/sound.js?v=202611181400"></script>
+<script src="js/pieces.js?v=202611181400"></script>
+<script src="js/engine.js?v=202611181400"></script>
+<script src="js/flat.js?v=202611181400"></script>
+<script src="js/rules.js?v=202611181400"></script>
+<script src="js/ai.js?v=202611181400"></script>
+<script src="js/legends.js?v=202611181400"></script>
+<script src="js/board2d.js?v=202611181400"></script>
+<script src="js/board3d.js?v=202611181400"></script>
+<script src="js/play.js?v=202611181400"></script>
+<script src="js/config.js?v=202611181400"></script>
+<script src="js/tutor.js?v=202611181400"></script>
+</body>
+</html>

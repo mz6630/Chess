@@ -170,6 +170,7 @@
 
   function where() {
     if (window.FG_LEARN) return window.FG_LEARN.active() ? 'lesson' : 'course';
+    if (window.FG_PLAY) return window.FG_PLAY.active() ? 'game' : 'play-setup';
     const s = document.getElementById('setup');
     if (document.body.classList.contains('intro-on')) return 'intro';
     if (s && s.getBoundingClientRect().top < innerHeight * .5) return 'board';
@@ -178,6 +179,8 @@
 
   function localAnswer(q, lang) {
     const t = q.trim();
+    if (window.FG_PLAY && /level|레벨|난이도/i.test(t)) return T(lang, 'New to chess? Start at level 1 or 2 with beginner mode on: I warn you before big mistakes and you can take moves back. Move up when you win twice in a row.', '처음이라면 초보 모드를 켜고 레벨 1이나 2부터 시작하세요. 큰 실수 전에 알려 드리고, 수를 무를 수도 있어요. 두 번 연속 이기면 한 단계 올려 보세요.');
+    if (window.FG_PLAY && /ceiling|천장/i.test(t)) return T(lang, 'In ceiling mode the pieces disappear, the way Beth Harmon pictured the board on her ceiling. You play from memory, with three two-second peeks per game. Moves still show on the scoresheet.', '천장 모드에서는 기물이 사라져요. 베스 하먼이 천장에 체스판을 그리던 것처럼 기억으로 두는 거예요. 한 게임에 2초씩 세 번 엿볼 수 있고, 수는 기보지에 계속 적혀요.');
     const W = where();
     if (window.FG_LEARN && /hint|help|stuck|don.?t (get|know|understand)|how do i|what do i|힌트|도와|모르겠|막혔|어떻게 해|뭘 해/i.test(t)) return window.FG_LEARN.hint(lang);
     if (window.FG_LEARN && /again|explain|repeat|다시|설명/i.test(t)) return window.FG_LEARN.explain(lang);
@@ -197,10 +200,13 @@
 
   async function answer(q) {
     const lang = ko(q) ? 'ko' : 'en';
+    // during a game, "what should I play?" is answered by the engine, so the hint is always sound
+    if (window.FG_PLAY && window.FG_PLAY.active() && /hint|what should i (play|do|move)|best move|good move|help me|힌트|뭐 ?(둘|둬|두)|어떻게 ?(둘|둬|두)|좋은 수|추천/i.test(q)) return window.FG_PLAY.hint(lang);
     const ep = window.FG_TUTOR_ENDPOINT;
     if (ep) {
       try {
         const ctx = window.FG_LEARN ? { section: where(), lesson: window.FG_LEARN.context() }
+          : window.FG_PLAY ? { section: where(), game: window.FG_PLAY.context() }
           : { section: where(), board: window.FG_BOARD && window.FG_BOARD.pieces ? window.FG_BOARD.pieces() : null, analysis: analyse(lang) };
         const r = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, lang, context: ctx }) });
         const j = await r.json().catch(() => null);
@@ -227,6 +233,8 @@
     log.appendChild(p); log.scrollTop = log.scrollHeight; return p;
   };
   const CHIPS = {
+    game: [['Give me a hint', '힌트 줘'], ['Why was that a mistake?', '그 수가 왜 실수야?'], ['What is my plan?', '내 계획은 뭐가 좋아?']],
+    'play-setup': [['Which level should I pick?', '어떤 레벨을 고를까?'], ['What is ceiling mode?', '천장 모드가 뭐야?']],
     landing: [['How does the knight move?', '나이트는 어떻게 움직여?'], ['What is the Queen’s Gambit?', '퀸스 갬빗이 뭐야?'], ['Opening tips', '오프닝 팁']],
     board: [['Analyse the board', '보드 분석해줘'], ['What should Black play?', '흑은 뭘 둬야 해?'], ['How do I move pieces?', '기물은 어떻게 옮겨?']],
     intro: [['What is this site?', '이 사이트는 뭐야?']],
@@ -254,6 +262,9 @@
 
   function open() {
     panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); hint.hidden = true; store.set('fgHint', '1'); sfx('open');
+    if (!log.childElementCount && window.FG_PLAY) say(T(lang,
+      'Hi, I’m Pawn. Ask me for a hint, why a move was good or bad, or anything about the rules. After the game, ask me about the review.',
+      '안녕하세요, 저는 Pawn이에요. 힌트를 달라고 하거나, 어떤 수가 왜 좋은지 나쁜지, 규칙이 궁금하면 물어보세요. 게임이 끝나면 복기 내용도 물어볼 수 있어요.'), 'ai');
     if (!log.childElementCount && window.FG_LEARN) say(T(lang,
       'Hi, I’m Pawn, your chess tutor. Stuck on a step? Ask me for a hint, or ask anything about chess.',
       '안녕하세요, 저는 체스 튜터 폰이에요. 막히는 단계가 있으면 힌트를 달라고 하거나, 체스에 대해 무엇이든 물어보세요.'), 'ai');

@@ -27,6 +27,16 @@ Click anywhere or press any key to skip the intro. Click the *First Gambit* logo
 
 No build step and no libraries: open `index.html` in a browser, or serve the folder with GitHub Pages. Fonts (Bodoni Moda, Jost) load from Google Fonts. Browsers without WebGL2, or with reduced motion turned on, skip straight to the landing.
 
+## Play page (`play.html`)
+
+- **Computer** (`js/ai.js`): a small engine in a Web Worker (0x88 board, alpha-beta, quiescence, transposition table). Five levels; each beat the one below in test matches. Beginner mode warns before a blunder ("after Qd5, Rxd5 wins your queen") and allows takebacks. Start from the normal position or the Queen's Gambit.
+- **Two players** on one device, and **Legends** (`js/legends.js`): the Opera Game (1858), the Immortal Game (1851), the Game of the Century (1956) and Harmon vs Borgov from the series. You play the winner and guess each move: a hint after one miss, the real move after two, notes at the key moments, and a score at the end. Every score is checked move by move with `js/rules.js`.
+- **Chess clock**: blitz 5, rapid 15+10, classical 90+30. Press your side after each move (or Space); until you do, your time runs and the opponent waits.
+- **Scoresheet**: moves appear in handwriting; or write them yourself (before your next move). Save it as a PNG with signatures, download the PGN, or save a blank scoresheet to print and fill in on real paper.
+- **Tournament rules** (on automatically at levels 4 and 5): no helpers. You press the clock with no reminders, watch your own time (no low-time beeps), write both players' moves with no answers shown, and play without move dots, hints, takebacks or warnings.
+- **3D or 2D** (`js/board3d.js`, `js/board2d.js`), switchable mid-game; click or drag. **Ceiling mode** hides the pieces, with three two-second peeks.
+- **Review**: every position is analysed; moves get ??, ?, ?! marks, an evaluation bar follows the game, and the three key moments explain what was better. Pawn reads the game and gives engine-backed hints (not under tournament rules).
+
 ## Sound (`js/sound.js`)
 
 Every sound is synthesised with Web Audio, no audio files: wood knocks for pieces, a felt-piano phrase for the intro (one note per rising piece, a ripple for the wave, low notes as they sink, air for the curtain, a chord as the landing appears), chimes for right and wrong answers, a ping for stars, a bell for check and an arpeggio for promotion and finished lessons. Every button and link ticks; Pawn pops open and closed. The speaker button above Pawn mutes everything (remembered in the browser). Browsers only allow sound after a click or key press, so the very first intro on a fresh visit is silent; clicking the logo replays it with sound.

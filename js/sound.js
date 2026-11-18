@@ -111,6 +111,12 @@ window.FG_SOUND = (() => {
     open: t => { glide(t, 520, 780, .09, .09); note(t + .03, hz(79), { dur: .4, gain: .06 }); },
     close: t => glide(t, 700, 470, .09, .08),
     reply: t => { note(t, hz(84), { dur: .35, gain: .04 }); note(t + .07, hz(88), { dur: .4, gain: .035 }); },
+    // the chess clock: a mechanical snap with a little ring; a soft tick when time runs low; the flag
+    clock: (t, o) => { knock(t, { f: 2600, dur: .03, gain: .42, q: 2.5, pan: o.pan }); knock(t + .012, { f: 700, dur: .06, gain: .32, thump: 220, pan: o.pan }); note(t + .02, hz(96), { dur: .18, gain: .015, bright: 8000, hammer: false, verb: .1 }); },
+    lowtime: t => knock(t, { f: 3200, dur: .015, gain: .09, q: 4 }),
+    flag: t => { note(t, hz(84), { dur: .6, gain: .1, bright: 5000 }); note(t + .16, hz(80), { dur: .8, gain: .1, bright: 5000 }); },
+    // pen on paper: three short scratches
+    write: t => { for (let i = 0; i < 3; i++) sweep(t + i * .07, 2400 + i * 300, 3800, .06, .05); },
     // the scroll scene on the home page
     land: (t, o) => knock(t, { f: PIECE_F[o.type] || 1300, dur: .07, gain: .14, thump: 170, pan: o.pan }),
     lift: (t, o) => { knock(t, { f: 2100, dur: .03, gain: .09, pan: o.pan }); glide(t, 300, 420, .1, .02, o); },
