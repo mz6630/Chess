@@ -8,9 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Jost:wght@300;400;500&family=Caveat:wght@400;600&display=swap">
-<link rel="stylesheet" href="css/style.css?v=202611191000">
-<link rel="stylesheet" href="css/learn.css?v=202611191000">
-<link rel="stylesheet" href="css/play.css?v=202611191000">
+<link rel="stylesheet" href="css/style.css?v=202611191200">
+<link rel="stylesheet" href="css/learn.css?v=202611191200">
+<link rel="stylesheet" href="css/play.css?v=202611191200">
 </head>
 <body class="learn play">
 
@@ -59,7 +59,11 @@
       <div class="ps-body">
         <h2 data-i18n="s2"></h2>
         <div class="seg" data-opt="time" role="group" aria-label="Time"><button type="button" data-v="none" data-i18n="none"></button><button type="button" data-v="blitz" data-i18n="blitz"></button><button type="button" data-v="rapid" data-i18n="rapid"></button><button type="button" data-v="classical" data-i18n="classical"></button></div>
-        <label class="chk" id="pressBox"><input type="checkbox" data-check="press"><span data-i18n="press"></span></label>
+        <div class="ps-sub" id="pressBox">
+          <p class="cap" data-i18n="pressQ"></p>
+          <div class="seg" data-opt="press" role="group" aria-label="Clock"><button type="button" data-v="true" data-i18n="pressMe"></button><button type="button" data-v="false" data-i18n="pressAuto"></button></div>
+          <p class="ps-note" data-i18n="pressNote"></p>
+        </div>
       </div>
     </section>
 
@@ -67,7 +71,10 @@
       <p class="ps-n" aria-hidden="true">03</p>
       <div class="ps-body">
         <h2 data-i18n="s3"></h2>
-        <label class="chk"><input type="checkbox" data-check="write"><span data-i18n="write"></span></label>
+        <div class="ps-sub">
+          <div class="seg" data-opt="write" role="group" aria-label="Scoresheet"><button type="button" data-v="false" data-i18n="writeAuto"></button><button type="button" data-v="true" data-i18n="writeMe"></button></div>
+          <p class="ps-note" data-i18n="writeNote"></p>
+        </div>
       </div>
     </section>
 
@@ -116,6 +123,7 @@
     <div class="clock" id="clock" hidden>
       <div class="ck" data-c="w"><button type="button" class="ck-btn"><span class="ck-plunger"></span></button><p class="ck-name"></p><p class="ck-t">5:00</p></div>
       <div class="ck" data-c="b"><button type="button" class="ck-btn"><span class="ck-plunger"></span></button><p class="ck-name"></p><p class="ck-t">5:00</p></div>
+      <button type="button" class="ck-mode" id="ckMode" aria-pressed="true"></button>
     </div>
     <p class="thinking" id="thinking" hidden></p>
     <div class="pg-rev" id="reviewNav" hidden>
@@ -136,17 +144,17 @@
   </aside>
 </section>
 
-<script src="js/sound.js?v=202611191000"></script>
-<script src="js/pieces.js?v=202611191000"></script>
-<script src="js/engine.js?v=202611191000"></script>
-<script src="js/flat.js?v=202611191000"></script>
-<script src="js/rules.js?v=202611191000"></script>
-<script src="js/ai.js?v=202611191000"></script>
-<script src="js/legends.js?v=202611191000"></script>
-<script src="js/board2d.js?v=202611191000"></script>
-<script src="js/board3d.js?v=202611191000"></script>
-<script src="js/play.js?v=202611191000"></script>
-<script src="js/config.js?v=202611191000"></script>
-<script src="js/tutor.js?v=202611191000"></script>
+<script src="js/sound.js?v=202611191200"></script>
+<script src="js/pieces.js?v=202611191200"></script>
+<script src="js/engine.js?v=202611191200"></script>
+<script src="js/flat.js?v=202611191200"></script>
+<script src="js/rules.js?v=202611191200"></script>
+<script src="js/ai.js?v=202611191200"></script>
+<script src="js/legends.js?v=202611191200"></script>
+<script src="js/board2d.js?v=202611191200"></script>
+<script src="js/board3d.js?v=202611191200"></script>
+<script src="js/play.js?v=202611191200"></script>
+<script src="js/config.js?v=202611191200"></script>
+<script src="js/tutor.js?v=202611191200"></script>
 </body>
 </html>

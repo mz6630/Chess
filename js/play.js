@@ -43,8 +43,7 @@
     $('pressBox').hidden = cfg.time === 'none';
     $('optTour').hidden = cfg.mode === 'legend';
     const T = cfg.tournament && cfg.mode !== 'legend';
-    document.querySelectorAll('[data-check="press"],[data-check="write"],[data-check="beginner"]').forEach(i => { i.closest('.chk').classList.toggle('locked', T); i.disabled = T; });
-    if (T) { document.querySelector('[data-check="press"]').checked = true; document.querySelector('[data-check="write"]').checked = true; document.querySelector('[data-check="beginner"]').checked = false; }
+    document.querySelectorAll('[data-check="beginner"]').forEach(i => { i.closest('.chk').classList.toggle('locked', T); i.disabled = T; if (T) i.checked = false; });
     $('nameIn').value = cfg.name; $('nameW').value = cfg.nameW; $('nameB').value = cfg.nameB;
     $('legendList').innerHTML = LEG.map(g => `<button type="button" class="leg${cfg.legend === g.id ? ' on' : ''}" data-leg="${g.id}" aria-pressed="${cfg.legend === g.id}">
       <span class="leg-y">${g.year}</span><span class="leg-t">${L(g.title)}</span><span class="leg-p">${g.white} – ${g.black}</span>
@@ -61,14 +60,20 @@
     beginner: P('Beginner mode: warn me before a blunder, allow takebacks', '초보 모드: 큰 실수 전에 알려 주고, 무르기 허용'),
     none: P('No clock', '시계 없음'), blitz: P('Blitz 5 min', '블리츠 5분'), rapid: P('Rapid 15+10', '래피드 15+10'), classical: P('Classical 90+30', '클래식 90+30'),
     press: P('Press the clock myself after each move (Space works too)', '수를 둔 뒤 시계를 직접 누르기 (스페이스바도 돼요)'),
+    pressQ: P('After each move, the clock…', '수를 둔 뒤 시계는…'),
+    pressMe: P('I press it', '내가 직접 누르기'), pressAuto: P('Switches by itself', '자동으로 넘어가기'),
+    pressNote: P('Pressing works like a real tournament: until you press (or hit Space), your time keeps running. You can change this during the game, under the clock.', '직접 누르기는 실제 대회와 같아요. 누르기 전까지(스페이스바도 돼요) 내 시간이 계속 흘러가요. 게임 중에도 시계 아래에서 바꿀 수 있어요.'),
+    writeAuto: P('Written for me', '자동으로 적기'), writeMe: P('I write the moves', '내가 직접 적기'),
+    writeNote: P('Writing yourself means recording every move, yours and your opponent’s, before your next one. Either way works with any clock setting.', '직접 적기는 내 수와 상대 수를 모두 다음 수 전에 적는 거예요. 시계 설정과 상관없이 고를 수 있어요.'),
+    ckManual: P('I press the clock', '시계 직접 누르기'), ckAuto: P('Clock switches by itself', '시계 자동'),
     write: P('Write the moves myself, like a real tournament', '실제 대회처럼 기보를 직접 적기'),
     yourName: P('Your name', '내 이름'), nameW: P('White’s name', '백 이름'), nameB: P('Black’s name', '흑 이름'),
     v3d: P('3D', '3D'), v2d: P('2D', '2D'), ceiling: P('Ceiling mode: the pieces vanish, like Beth seeing the board on the ceiling. Three peeks per game.', '천장 모드: 기물이 사라져요. 하먼이 천장에 체스판을 그리듯 머릿속으로 두세요. 한 게임에 세 번 엿볼 수 있어요.'),
     go: P('Start the game', '게임 시작'),
     s5: P('Tournament rules', '토너먼트 규칙'),
     tour: P('Play by tournament rules: no helpers at all', '토너먼트 규칙으로 두기: 보조 기능 없이'),
-    tourNote: P('For strong players, and switched on automatically at levels 4 and 5. You press the clock yourself and nobody reminds you; you keep an eye on your own time; you write every move, yours and your opponent’s, on the scoresheet. No move dots, hints, takebacks or warnings. Prefer real paper? Print a blank scoresheet and write on it by hand.',
-      '숙련자를 위한 규칙이에요. 레벨 4·5를 고르면 자동으로 켜져요. 시계는 직접 누르고 아무도 알려 주지 않아요. 남은 시간도 스스로 확인해요. 내 수와 상대 수를 모두 기보지에 직접 적어요. 이동 표시, 힌트, 무르기, 경고는 없어요. 진짜 종이가 좋다면 빈 기보지를 인쇄해서 손으로 적어 보세요.'),
+    tourNote: P('For strong players, and switched on automatically at levels 4 and 5. No move dots, hints, takebacks or warnings, and no reminders: you watch your own time. Pressing the clock and writing the moves start switched on, but stay your choice in 02 and 03. Prefer real paper? Print a blank scoresheet and write on it by hand.',
+      '숙련자를 위한 규칙이에요. 레벨 4·5를 고르면 자동으로 켜져요. 이동 표시, 힌트, 무르기, 경고, 알림이 없고 시간은 스스로 확인해요. 시계 직접 누르기와 기보 직접 적기는 켜진 채로 시작하지만, 02와 03에서 원하는 대로 바꿀 수 있어요. 진짜 종이가 좋다면 빈 기보지를 인쇄해서 손으로 적어 보세요.'),
     blank: P('Save a blank scoresheet to print', '인쇄용 빈 기보지 저장'),
     tourOn: P('Tournament rules', '토너먼트 규칙'),
     newGame: P('← New game', '← 새 게임'), hint: P('Hint', '힌트'), undo: P('Take back', '무르기'), draw: P('Offer draw', '무승부 제안'), resign: P('Resign', '기권'), save: P('Save scoresheet', '기보지 저장'),
@@ -77,8 +82,8 @@
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-opt] button[data-v]');
     if (b) {
-      const k = b.closest('[data-opt]').dataset.opt, v = b.dataset.v; cfg[k] = /^\d+$/.test(v) ? +v : v;
-      if (k === 'level') { cfg.tournament = cfg.level >= 4; if (cfg.tournament && cfg.time === 'none') cfg.time = 'rapid'; }   // strong levels play by tournament rules, with a clock
+      const k = b.closest('[data-opt]').dataset.opt, v = b.dataset.v; cfg[k] = /^\d+$/.test(v) ? +v : v === 'true' ? true : v === 'false' ? false : v;
+      if (k === 'level') { const was = cfg.tournament; cfg.tournament = cfg.level >= 4; if (cfg.tournament && !was) { cfg.press = true; cfg.write = true; } if (cfg.tournament && cfg.time === 'none') cfg.time = 'rapid'; }   // strong levels play by tournament rules, with a clock
       if (k === 'time' && v === 'none') cfg.tournament = false;      // tournament rules need a clock
       store.set('fgPlay', cfg); renderSetup(); return;
     }
@@ -87,7 +92,7 @@
   });
   document.querySelectorAll('[data-check]').forEach(i => i.addEventListener('change', () => {
     cfg[i.dataset.check] = i.checked;
-    if (i.dataset.check === 'tournament' && i.checked && cfg.time === 'none') cfg.time = 'rapid';   // a clock is part of the rules
+    if (i.dataset.check === 'tournament' && i.checked) { if (cfg.time === 'none') cfg.time = 'rapid'; cfg.press = true; cfg.write = true; }   // a clock is part of the rules; pressing and writing start on, and stay your choice
     store.set('fgPlay', cfg); renderSetup();
   }));
   $('blankBtn').addEventListener('click', () => saveSheet(true));
@@ -123,12 +128,12 @@
     G = {
       mode: cfg.mode, level: cfg.level, tour, beginner: !tour && cfg.mode === 'ai' && cfg.beginner, you, flip: cfg.mode === 'two' ? 'w' : you,
       st: newState(), hist: [], over: null, sel: null, busy: false, ceiling: cfg.ceiling, peeks: 3, peeking: false,
-      write: tour || (cfg.mode !== 'legend' && cfg.write), written: 0, leg, legPly: 0, legScore: 0, legTries: 0, legHint: null, coach: [], review: null, reps: {}, half: 0,
+      write: cfg.mode !== 'legend' && !!cfg.write, written: 0, leg, legPly: 0, legScore: 0, legTries: 0, legHint: null, coach: [], review: null, reps: {}, half: 0,
       names: leg ? { w: leg.white, b: leg.black }
         : cfg.mode === 'two' ? { w: cfg.nameW || L(P('White', '백')), b: cfg.nameB || L(P('Black', '흑')) }
         : you === 'w' ? { w: cfg.name || L(P('You', '나')), b: `${L(P('Computer', '컴퓨터'))} · ${L(UI.level)} ${cfg.level}` } : { w: `${L(P('Computer', '컴퓨터'))} · ${L(UI.level)} ${cfg.level}`, b: cfg.name || L(P('You', '나')) },
       date: new Date(),
-      clock: t && cfg.mode !== 'legend' ? { t: { w: t[0] * 60000, b: t[0] * 60000 }, inc: t[1] * 1000, run: 'w', at: performance.now(), wait: null, manual: tour || cfg.press, label: TIMES[cfg.time] ? cfg.time : 'rapid' } : null
+      clock: t && cfg.mode !== 'legend' ? { t: { w: t[0] * 60000, b: t[0] * 60000 }, inc: t[1] * 1000, run: 'w', at: performance.now(), wait: null, manual: !!cfg.press, label: TIMES[cfg.time] ? cfg.time : 'rapid' } : null
     };
     if (cfg.mode === 'ai' && cfg.start === 'qg') for (const [f, to] of [['d2', 'd4'], ['d7', 'd5'], ['c2', 'c4']]) record(R.legal(G.st, f).find(m => m.to === to), true);
     if (G.clock) { G.clock.run = G.st.turn; G.clock.at = performance.now(); }   // the clock starts with whoever is to move
@@ -143,7 +148,7 @@
     else if (G.mode === 'ai') coach(G.you === 'w' ? P('You have White. Your move.', '백이에요. 먼저 두세요.') : P('You have Black. The computer moves first.', '흑이에요. 컴퓨터가 먼저 둬요.'));
     else coach(P('White moves first. Pass the device after each move.', '백이 먼저 둬요. 한 수씩 두고 기기를 넘겨주세요.'));
     $('game').classList.toggle('tour', G.tour); $('clock').dataset.tour = L(UI.tourOn);
-    if (G.tour) coach(P('Tournament rules: press your clock after every move, watch your own time, and write both players’ moves before your next move. No helpers. Good luck.', '토너먼트 규칙: 수를 둘 때마다 시계를 누르고, 시간은 스스로 확인하고, 다음 수 전에 양쪽 수를 모두 적으세요. 보조 기능은 없어요. 행운을 빌어요.'), 'story');
+    if (G.tour) coach(P(`Tournament rules: no helpers and no reminders, so watch your own time.${G.clock && G.clock.manual ? ' Press your clock after every move.' : ''}${G.write ? ' Write both players’ moves before your next move.' : ''} Good luck.`, `토너먼트 규칙: 보조 기능도 알림도 없으니 시간은 스스로 확인하세요.${G.clock && G.clock.manual ? ' 수를 둘 때마다 시계를 누르세요.' : ''}${G.write ? ' 다음 수 전에 양쪽 수를 모두 적으세요.' : ''} 행운을 빌어요.`), 'story');
     else if (G.clock && G.clock.manual) coach(P('After each move, press your side of the clock (or Space). Until you do, your time keeps running.', '수를 둔 뒤에는 내 쪽 시계를 누르세요(스페이스바도 돼요). 누르기 전까지는 내 시간이 계속 흘러가요.'));
     if (G.write && !G.tour) coach(P('Write each move on the scoresheet before you make your next one.', '다음 수를 두기 전에 앞의 수를 기보지에 적어야 해요.'));
     if (G.ceiling) coach(P('Ceiling mode: the pieces are hidden. Use “Peek” to see them for two seconds (three times).', '천장 모드: 기물이 보이지 않아요. “엿보기”를 누르면 2초 동안 보여요(세 번).'));
@@ -393,6 +398,8 @@
       btn.disabled = C.wait !== c || !human(c);
       btn.setAttribute('aria-label', `${G.names[c]}: ${L(P('press the clock', '시계 누르기'))}`);
     });
+    const m = $('ckMode'); m.setAttribute('aria-pressed', String(!!C.manual)); m.textContent = L(C.manual ? UI.ckManual : UI.ckAuto);
+    m.hidden = !!G.over;
     renderClockTimes();
   }
   function renderClockTimes() {
@@ -400,6 +407,14 @@
     ['w', 'b'].forEach(c => { const el = $('clock').querySelector(`.ck[data-c="${c}"] .ck-t`); el.textContent = fmt(G.clock.t[c]); el.classList.toggle('low', G.clock.t[c] < 10000); });
   }
   $('clock').addEventListener('click', e => { const b = e.target.closest('.ck-btn'); if (b && !b.disabled) press(b.closest('.ck').dataset.c); });
+  // switch between pressing the clock yourself and letting it switch by itself, any time
+  $('ckMode').addEventListener('click', () => {
+    const C = G && G.clock; if (!C || G.over) return;
+    C.manual = !C.manual; cfg.press = C.manual; store.set('fgPlay', cfg);
+    if (!C.manual) $('clock').classList.remove('nudge');
+    if (!C.manual && C.wait && human(C.wait)) press(C.wait, true);   // waiting on you? the clock switches now
+    renderClock();
+  });
   addEventListener('keydown', e => {
     if (e.code !== 'Space' || !G || !G.clock || !G.clock.wait || !human(G.clock.wait)) return;
     if (e.target.closest('input,textarea,button,[role="application"]') && !e.target.closest('.b2,.b3')) return;

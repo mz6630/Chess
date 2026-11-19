@@ -252,3 +252,10 @@
   .pg-ctrl{grid-template-columns:repeat(3,minmax(0,1fr))}
   .sheet .sh-head>.cap{display:none}
 }
+
+/* the clock's own switch: press it yourself, or let it switch by itself */
+.ck-mode{grid-column:1/-1;justify-self:center;margin-top:8px;min-height:30px;padding:0 12px;border:1px solid #555;border-radius:15px;color:#CFCFCB;font:400 10px/1 Jost,sans-serif;letter-spacing:.16em;text-transform:uppercase;background:transparent;transition:background .2s,color .2s}
+.ck-mode:hover{border-color:#999;color:#fff}
+.ck-mode::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px;background:#777;vertical-align:1px}
+.ck-mode[aria-pressed="true"]::before{background:#fff}
+.pg.tour .clock{padding-bottom:30px}
