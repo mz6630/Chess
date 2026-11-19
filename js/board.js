@@ -67,7 +67,8 @@
     function camera(prog, asp) {
       const fov = 30 * Math.PI / 180, tn = Math.tan(fov / 2), k = sstep(.45, .85, prog);
       const az = (36 + 22 * prog) * Math.PI / 180, el = (40 - 6 * prog) * Math.PI / 180;
-      const halfW = 7.3 - 0.3 * k, halfH = 5.6 - 1.5 * k;
+      // portrait phones: frame the board closer so it fills the width instead of floating in white
+      const narrow = asp < .9, halfW = (narrow ? 6.4 : 7.3) - 0.3 * k, halfH = 5.6 - 1.5 * k;
       const dist = Math.max(halfW / (tn * Math.min(asp, 2.2)), halfH / tn) * 1.04 + 2;
       const tgt = [0, 1.55 - 1.45 * k, 0];
       return { eye: V.add(tgt, V.mul([Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az)], dist)), tgt, fov };

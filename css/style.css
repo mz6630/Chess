@@ -114,3 +114,19 @@ nav{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-be
 .snd svg{width:20px;height:20px}
 .snd[aria-pressed="false"]{color:var(--md)}
 .intro-on .snd{display:none}
+
+/* ---------- phones: compact nav, a smaller Pawn and speaker side by side, room left for them ---------- */
+@media (max-width:899px){
+  .links{display:flex;gap:14px;font-size:10px;letter-spacing:.16em}
+  .links a{padding:10px 0}
+  .tutor{right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));gap:8px}
+  .t-btn{width:52px;height:52px}
+  .t-pawn{width:21px;height:36px}
+  .t-hint{font-size:12px;padding:7px 11px;white-space:normal;max-width:200px}
+  .t-hint::after{right:19px}
+  .t-panel{width:calc(100vw - 24px);height:min(74svh,560px)}
+  .snd{right:calc(max(12px,env(safe-area-inset-right,0px)) + 62px);bottom:calc(max(12px,env(safe-area-inset-bottom,0px)) + 8px);width:36px;height:36px}
+  .snd svg{width:18px;height:18px}
+  .bot{padding-bottom:84px}
+  .feats{font-size:14px}
+}

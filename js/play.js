@@ -136,6 +136,7 @@
     $('peekBtn').hidden = !G.ceiling; $('evalBar').hidden = true; $('reviewNav').hidden = true;
     $('gameTitle').textContent = leg ? `${L(leg.title)} · ${leg.year}` : G.mode === 'two' ? L(UI.mTwo) : `${L(UI.mAI)} · ${L(UI.level)} ${G.level} (${L(LEVELS[G.level - 1])})`;
     mountView(cfg.view);
+    setSheet(false);
     renderSheet(); renderClock(); renderControls();
     G.coach = [];
     if (leg) coach(P(`${leg.story.en}`, `${leg.story.ko}`), 'story');
@@ -442,6 +443,7 @@
     html += '</tbody></table>';
     if (G.over) html += `<div class="sh-sign"><div><span class="hw">${esc(G.names.w)}</span><small>${L(P('White’s signature', '백 서명'))}</small></div><div><span class="hw">${esc(G.names.b)}</span><small>${L(P('Black’s signature', '흑 서명'))}</small></div></div>`;
     sheet.innerHTML = html;
+    renderSheetTog();
     if (fresh && !G.write && G.hist.length) sfx('write', { delay: .35 });
     const inp = $('writeIn');
     if (inp) {
@@ -460,6 +462,23 @@
     const last = sheet.querySelector('td.cur') || sheet.querySelector('td.next') || [...sheet.querySelectorAll('td.mv')].pop();
     if (last) { const box = sheet.getBoundingClientRect(), r = last.getBoundingClientRect(); if (r.bottom > box.bottom || r.top < box.top) sheet.scrollTop += r.top - box.top - box.height / 2; }
   }
+  // phones: the scoresheet folds into one line (move count and the last move); it opens by itself when you must write
+  let sheetOpen = false;
+  function setSheet(open) {
+    sheetOpen = open;
+    document.querySelector('.pg-side').classList.toggle('sheet-open', open);
+    $('sheetTog').setAttribute('aria-expanded', String(open));
+  }
+  function renderSheetTog() {
+    if (!G) return;
+    const n = G.hist.length, h = G.hist[n - 1];
+    const must = pendingWrites() > 0;
+    $('sheetTogLab').textContent = L(P('Scoresheet', '기보지'));
+    $('sheetTogLast').textContent = must ? L(P('Write the move ↓', '수를 적으세요 ↓')) : h ? `${Math.floor((n - 1) / 2) + 1}${h.by === 'w' ? '.' : '...'} ${h.san}` : L(P('No moves yet', '아직 수가 없어요'));
+    $('sheetTog').classList.toggle('must', must);
+    if ((must || (G.review && !G.review.seen)) && !sheetOpen) { setSheet(true); if (G.review) G.review.seen = true; }
+  }
+  $('sheetTog').addEventListener('click', () => setSheet(!sheetOpen));
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   $('sheet').addEventListener('click', e => { const td = e.target.closest('td.mv'); if (td && G && G.review) goReview(+td.dataset.ply); });
 
