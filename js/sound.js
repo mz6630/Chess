@@ -1,8 +1,8 @@
 // SOUND: every effect is synthesised with Web Audio, no audio files.
 // Wood knocks for pieces (filtered noise + a short resonant tone), a felt-piano voice for the intro
 // (a few sine partials with a soft hammer), airy sweeps, and small chimes for right and wrong answers.
-// Browsers only allow sound after the visitor has clicked or pressed a key, so the very first intro on
-// a fresh visit plays silently; the logo replays it with sound. The speaker button mutes everything.
+// Browsers only allow sound after the visitor has clicked or pressed a key, so on a fresh visit the intro
+// waits for one click before it starts (see intro.js). The speaker button mutes everything.
 window.FG_SOUND = (() => {
   const AC = window.AudioContext || window.webkitAudioContext;
   const store = {

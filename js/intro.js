@@ -97,7 +97,7 @@
     [...document.querySelectorAll('.fd')].forEach((el, i) => A(el, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: 1200 + i * 100 }));
   };
   const hide = () => { cancelAnimationFrame(raf); loader.style.display = 'none'; body.classList.remove('intro-on'); };
-  const finish = () => { if (cues.length && window.FG_SOUND) window.FG_SOUND.stopIntro(); cues = []; gen++; cancelAnimationFrame(raf); anims.forEach(a => a.finish()); hide(); body.classList.remove('pre'); };
+  const finish = () => { waiting = false; gate.hidden = true; if (cues.length && window.FG_SOUND) window.FG_SOUND.stopIntro(); cues = []; gen++; cancelAnimationFrame(raf); anims.forEach(a => a.finish()); hide(); body.classList.remove('pre'); };
   const handOff = my => {
     handed = true;
     const a = loader.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 800, easing: 'ease-in-out', fill: 'forwards' });
@@ -131,33 +131,55 @@
   };
 
   const canPlay = () => R && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Sound: browsers block audio until the visitor clicks or presses a key on a site they haven't used yet.
+  // When sound is allowed (you came from another page of the site, or the browser trusts it) the intro starts
+  // at once with sound. When it is blocked, the intro waits on its first, empty frame with "Click anywhere to
+  // begin"; that first click or key turns the sound on and starts the intro from the beginning, with sound.
+  let waiting = false, starting = false;
+  const gate = document.createElement('div');
+  gate.className = 'intro-gate'; gate.hidden = true;
+  gate.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><b>' + (matchMedia('(hover: none)').matches ? 'Tap' : 'Click') + ' anywhere to begin</b><small>with sound</small>';
+  loader.appendChild(gate);
+  const start = my => {
+    if (my !== gen) return;
+    waiting = false; starting = false; gate.hidden = true;
+    t0 = performance.now(); makeCues();
+    cancelAnimationFrame(raf); raf = requestAnimationFrame(frame(my));
+  };
+  const hold = my => () => {
+    if (my !== gen || !waiting) return;
+    try { draw(0); } catch (e) { console.error(e); finish(); return; }
+    raf = requestAnimationFrame(hold(my));
+  };
+  const go = () => {          // the visitor's first click or key while the intro waits
+    if (starting) return;
+    const my = gen; starting = true; gate.hidden = true;
+    const S = window.FG_SOUND;
+    let done = false; const once = () => { if (!done) { done = true; start(my); } };
+    if (S) S.enable().then(once, once);
+    setTimeout(once, 600);    // never hang if the browser still says no
+  };
   const play = () => {
     if (!R) return;
     const my = ++gen;
     anims.forEach(a => a.cancel()); anims = []; curtainOn = false; handed = false;
     body.classList.add('pre', 'intro-on'); loader.style.display = 'block'; loader.style.opacity = 1;
     window.scrollTo(0, 0);
-    t0 = performance.now(); makeCues(); offerSound();
-    raf = requestAnimationFrame(frame(my));
-  };
-
-  // Sound: plays at once when the browser allows it. If not (a first visit straight to the site), a small
-  // "Sound on" button appears; it turns sound on from that moment without skipping the intro.
-  const sndBtn = document.createElement('button');
-  sndBtn.type = 'button'; sndBtn.className = 'snd-on'; sndBtn.hidden = true; sndBtn.dataset.quiet = '';
-  sndBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Sound on</span>';
-  sndBtn.setAttribute('aria-label', 'Turn sound on');
-  loader.appendChild(sndBtn);
-  ['pointerdown', 'click'].forEach(ev => sndBtn.addEventListener(ev, e => e.stopPropagation()));
-  sndBtn.addEventListener('click', () => { if (window.FG_SOUND) window.FG_SOUND.enable(); sndBtn.hidden = true; });
-  const offerSound = () => {
     const S = window.FG_SOUND;
-    if (!S || !S.on) { sndBtn.hidden = true; return; }
-    sndBtn.hidden = S.prime();
+    if (!S || !S.on || S.prime()) return start(my);
+    // not running yet: give the browser a moment (a context that is allowed reports "running" a beat later),
+    // then ask for the click
+    waiting = true; starting = false; gate.hidden = true;
+    raf = requestAnimationFrame(hold(my));
+    const onRun = e => { if (e.detail === 'running') { removeEventListener('fgsound', onRun); if (my === gen && waiting) start(my); } };
+    addEventListener('fgsound', onRun);
+    setTimeout(() => { if (my === gen && waiting) { if (S.prime()) start(my); else gate.hidden = false; } }, 350);
   };
-  addEventListener('fgsound', e => { if (e.detail === 'running') sndBtn.hidden = true; });
-  loader.addEventListener('click', finish);
-  document.addEventListener('keydown', e => { if (loader.style.display === 'block' && !e.metaKey && !e.ctrlKey) finish(); });
+  loader.addEventListener('click', () => { if (waiting) go(); else finish(); });
+  document.addEventListener('keydown', e => {
+    if (loader.style.display !== 'block' || e.metaKey || e.ctrlKey) return;
+    if (waiting) go(); else finish();
+  });
   // the logo takes you back to the intro
   $('logo').addEventListener('click', e => { e.preventDefault(); if (canPlay()) play(); else window.scrollTo({ top: 0, behavior: 'smooth' }); });
   // "Main" scrolls back to the top
