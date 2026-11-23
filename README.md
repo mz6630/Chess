@@ -39,7 +39,7 @@ No build step and no libraries: open `index.html` in a browser, or serve the fol
 
 ## Sound (`js/sound.js`)
 
-Every sound is synthesised with Web Audio, no audio files: wood knocks for pieces, a felt-piano phrase for the intro (one note per rising piece, a ripple for the wave, low notes as they sink, air for the curtain, a chord as the landing appears), chimes for right and wrong answers, a ping for stars, a bell for check and an arpeggio for promotion and finished lessons. Every button and link ticks; Pawn pops open and closed. The speaker button above Pawn mutes everything (remembered in the browser). Browsers only allow sound after a click or key press, so the very first intro on a fresh visit is silent; clicking the logo replays it with sound.
+Every sound is synthesised with Web Audio, no audio files: wood knocks for pieces, a felt-piano phrase for the intro (one note per rising piece, a ripple for the wave, low notes as they sink, air for the curtain, a chord as the landing appears), chimes for right and wrong answers, a ping for stars, a bell for check and an arpeggio for promotion and finished lessons. Every button and link ticks; Pawn pops open and closed. The speaker button above Pawn mutes everything (remembered in the browser). The intro tries to play with sound straight away, and does whenever the browser allows it (you came from another page of the site, you have used the site before, or the browser is set to allow autoplay). On a first visit browsers hold sound back until a click; then a small "Sound on" button appears in the corner of the intro, which turns sound on from that moment without skipping it.
 
 ## Learn page (`learn.html`)
 

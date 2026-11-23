@@ -13,12 +13,14 @@ window.FG_SOUND = (() => {
   let ctx = null, master, verb, noise, introBus;
   const last = {};
 
-  const activated = () => !navigator.userActivation || navigator.userActivation.hasBeenActive;
+  // The context is created as soon as the page loads. If the browser allows sound without a click (you came
+  // from another page of the site, or you have used the site before), it runs at once; otherwise it waits,
+  // and the first click or key press anywhere starts it.
   function ensure() {
     if (!AC || !on) return null;
     if (!ctx) {
-      if (!activated()) return null;          // no gesture yet: stay silent instead of warning
       ctx = new AC();
+      ctx.addEventListener('statechange', () => dispatchEvent(new CustomEvent('fgsound', { detail: ctx.state })));
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -16; comp.ratio.value = 4;
       master = ctx.createGain(); master.gain.value = .85;
@@ -133,7 +135,7 @@ window.FG_SOUND = (() => {
 
   function play(name, o = {}) {
     if (!on || !S[name]) return;
-    const c = ensure(); if (!c) return;
+    const c = ensure(); if (!c || c.state !== 'running') return;
     // throttle by the time the sound will actually start, so staggered groups still rattle
     const at = performance.now() + (o.delay || 0) * 1000;
     if (GAP[name] && last[name] !== undefined && Math.abs(at - last[name]) < GAP[name]) return;
@@ -175,5 +177,9 @@ window.FG_SOUND = (() => {
     play('tick');
   }, true);
 
-  return { play, stopIntro, get on() { return on; }, names: Object.keys(S), _tap: () => { if (!ensure()) return null; const an = ctx.createAnalyser(); an.fftSize = 2048; master.connect(an); const rec = ctx.createMediaStreamDestination(); master.connect(rec); return { ctx, an, rec }; } };
+  // ask for sound now; the answer is whether it is already allowed
+  const prime = () => { const c = ensure(); return !!c && c.state === 'running'; };
+  const enable = () => { const c = ensure(); return c ? c.resume().then(() => c.state === 'running') : Promise.resolve(false); };
+  if (on) prime();
+  return { play, stopIntro, prime, enable, get running() { return !!ctx && ctx.state === 'running'; }, get on() { return on; }, names: Object.keys(S), _tap: () => { if (!ensure()) return null; const an = ctx.createAnalyser(); an.fftSize = 2048; master.connect(an); const rec = ctx.createMediaStreamDestination(); master.connect(rec); return { ctx, an, rec }; } };
 })();

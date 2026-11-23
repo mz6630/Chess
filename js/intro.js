@@ -137,10 +137,25 @@
     anims.forEach(a => a.cancel()); anims = []; curtainOn = false; handed = false;
     body.classList.add('pre', 'intro-on'); loader.style.display = 'block'; loader.style.opacity = 1;
     window.scrollTo(0, 0);
-    t0 = performance.now(); makeCues();
+    t0 = performance.now(); makeCues(); offerSound();
     raf = requestAnimationFrame(frame(my));
   };
 
+  // Sound: plays at once when the browser allows it. If not (a first visit straight to the site), a small
+  // "Sound on" button appears; it turns sound on from that moment without skipping the intro.
+  const sndBtn = document.createElement('button');
+  sndBtn.type = 'button'; sndBtn.className = 'snd-on'; sndBtn.hidden = true; sndBtn.dataset.quiet = '';
+  sndBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Sound on</span>';
+  sndBtn.setAttribute('aria-label', 'Turn sound on');
+  loader.appendChild(sndBtn);
+  ['pointerdown', 'click'].forEach(ev => sndBtn.addEventListener(ev, e => e.stopPropagation()));
+  sndBtn.addEventListener('click', () => { if (window.FG_SOUND) window.FG_SOUND.enable(); sndBtn.hidden = true; });
+  const offerSound = () => {
+    const S = window.FG_SOUND;
+    if (!S || !S.on) { sndBtn.hidden = true; return; }
+    sndBtn.hidden = S.prime();
+  };
+  addEventListener('fgsound', e => { if (e.detail === 'running') sndBtn.hidden = true; });
   loader.addEventListener('click', finish);
   document.addEventListener('keydown', e => { if (loader.style.display === 'block' && !e.metaKey && !e.ctrlKey) finish(); });
   // the logo takes you back to the intro
